@@ -1,12 +1,10 @@
-// الصق إعدادات Firebase هنا بعد إنشاء المشروع من:
-// https://console.firebase.google.com
-// Project settings → Your apps → SDK setup and configuration
-
-window.FIREBASE_CONFIG = {
-  apiKey: "PASTE_API_KEY",
-  authDomain: "PASTE_PROJECT_ID.firebaseapp.com",
-  projectId: "PASTE_PROJECT_ID",
-  storageBucket: "PASTE_PROJECT_ID.appspot.com",
-  messagingSenderId: "PASTE_SENDER_ID",
-  appId: "PASTE_APP_ID",
+// Firebase web config for call-center-doc
+export const firebaseConfig = {
+  apiKey: "AIzaSyAwnogGK31I9Ead5EKyyz0s_V_1LwIhnbA",
+  authDomain: "call-center-doc.firebaseapp.com",
+  projectId: "call-center-doc",
+  storageBucket: "call-center-doc.firebasestorage.app",
+  messagingSenderId: "506095526315",
+  appId: "1:506095526315:web:566ee169f057e08c31b2ee",
+  measurementId: "G-QMMXT7YZDY",
 };

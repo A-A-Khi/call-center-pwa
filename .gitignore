@@ -4,5 +4,8 @@ Thumbs.db
 .env
 .env.*
 node_modules/
+dist/
+.tools/
 .vscode/
 .idea/
+dev-dist/

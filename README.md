@@ -1,29 +1,34 @@
 # كول سنتر — تسجيل العملاء (PWA مشترك)
 
-تطبيق ويب للكول سنتر: تسجيل العملاء + استهداف المحتملين + تصدير Excel/CSV، مع **سجل مشترك** لكل الفريق عبر Firebase.
+تطبيق كول سنتر بـ **Vite + Firebase (npm)**  
+سجل واحد مشترك لكل الفريق + تصدير Excel/CSV + تصميم متجاوب.
 
-## الرابط
+## الروابط
 
-- GitHub: https://github.com/A-A-Khi/call-center-pwa
+- الكود: https://github.com/A-A-Khi/call-center-pwa
 - الموقع: https://a-a-khi.github.io/call-center-pwa/
 
-## تفعيل السجل المشترك (مرة واحدة)
+## التشغيل محليًا
 
-1. افتح [Firebase Console](https://console.firebase.google.com/) وسجّل بجوجل
-2. **Create a project** باسم مثل `call-center`
-3. من القائمة: **Build → Firestore Database → Create database**
-4. اختر **Start in test mode** ثم الموقع الأقرب
-5. من ⚙️ **Project settings → Your apps → Web** انسخ `firebaseConfig`
-6. الصق القيم في ملف `firebase-config.js`
-7. (اختياري) انشر قواعد `firestore.rules.txt` من تبويب Rules
-8. ارفع التعديل على GitHub
+```bash
+npm install
+npm run dev
+```
 
-بعدها أي موظف يفتح نفس الرابط يشوف **نفس العملاء** لحظيًا.
+## البناء
 
-## المميزات
+```bash
+npm run build
+```
 
-- فورم سريع أثناء المكالمة
-- فلترة للمهتمين/المحتملين/المحجوزين
-- مزامنة مباشرة بين الأجهزة
-- تصدير Excel بجداول: الكل / الملخص / المحتملين / المحجوزين
-- تصميم متجاوب للموبايل والديسكتوب
+## Firebase
+
+المشروع مربوط على `call-center-doc`.
+
+لازم يكون **Firestore Database** مُنشأ:
+
+1. [Firebase Console](https://console.firebase.google.com/project/call-center-doc/firestore)
+2. Create database → **Start in test mode**
+3. انشر قواعد `firestore.rules.txt` لو حابب
+
+بعدها أي موظف يفتح نفس الرابط يشوف نفس العملاء لحظيًا.
