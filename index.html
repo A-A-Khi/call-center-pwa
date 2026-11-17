@@ -64,6 +64,7 @@
           <label class="field">
             <span>رقم الهاتف</span>
             <input id="phone" name="phone" type="tel" inputmode="tel" placeholder="01xxxxxxxxx" required />
+            <small class="field-hint" id="phoneHint" hidden></small>
           </label>
         </div>
 
@@ -88,6 +89,27 @@
 
         <div class="grid-2">
           <label class="field">
+            <span>حالة المكالمة</span>
+            <select id="callStatus" name="callStatus">
+              <option value="answered">تم الرد</option>
+              <option value="no_answer">لم يرد</option>
+              <option value="busy">مشغول</option>
+              <option value="callback">أعد الاتصال</option>
+              <option value="wrong_number">رقم خطأ</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>الأولوية</span>
+            <select id="priority" name="priority">
+              <option value="normal">عادي</option>
+              <option value="high">مهم</option>
+              <option value="urgent">عاجل</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="grid-2">
+          <label class="field">
             <span>يوم المتابعة / الموعد</span>
             <input id="followUpDate" name="followUpDate" type="date" />
           </label>
@@ -100,11 +122,32 @@
         <div class="grid-2">
           <label class="field">
             <span>الخدمة / العرض</span>
-            <input id="service" name="service" type="text" placeholder="مثال: اشتراك شهري" />
+            <input id="service" name="service" type="text" placeholder="مثال: اشتراك شهري" list="serviceSuggestions" />
+            <datalist id="serviceSuggestions"></datalist>
+          </label>
+          <label class="field">
+            <span>المدينة / المنطقة</span>
+            <input id="city" name="city" type="text" placeholder="مثال: القاهرة" list="citySuggestions" />
+            <datalist id="citySuggestions"></datalist>
+          </label>
+        </div>
+
+        <div class="grid-2">
+          <label class="field">
+            <span>مصدر العميل</span>
+            <select id="source" name="source">
+              <option value="">غير محدد</option>
+              <option value="ads">إعلان</option>
+              <option value="referral">توصية</option>
+              <option value="website">موقع</option>
+              <option value="cold">اتصال بارد</option>
+              <option value="other">أخرى</option>
+            </select>
           </label>
           <label class="field">
             <span>اسم الموظف</span>
-            <input id="agentName" name="agentName" type="text" placeholder="اسمك" />
+            <input id="agentName" name="agentName" type="text" placeholder="اسمك" list="agentSuggestions" />
+            <datalist id="agentSuggestions"></datalist>
           </label>
         </div>
 
@@ -139,15 +182,33 @@
           <span class="stat-label">محجوز</span>
           <strong id="statBooked">0</strong>
         </article>
+        <article class="stat today">
+          <span class="stat-label">متابعة اليوم</span>
+          <strong id="statToday">0</strong>
+        </article>
+        <article class="stat danger">
+          <span class="stat-label">متأخر</span>
+          <strong id="statOverdue">0</strong>
+        </article>
+      </div>
+
+      <div class="quick-filters" id="quickFilters" role="tablist" aria-label="فلاتر سريعة">
+        <button type="button" class="chip active" data-quick="all">الكل</button>
+        <button type="button" class="chip" data-quick="today">متابعة اليوم</button>
+        <button type="button" class="chip" data-quick="overdue">متأخر</button>
+        <button type="button" class="chip" data-quick="hot">مهتم وغير محجوز</button>
+        <button type="button" class="chip" data-quick="targets">محتملين</button>
+        <button type="button" class="chip" data-quick="callback">أعد الاتصال</button>
+        <button type="button" class="chip" data-quick="priority">أولوية عالية</button>
       </div>
 
       <div class="panel-head row">
         <div>
           <h2 id="list-title">قائمة العملاء</h2>
-          <p>فلتر واستهدف العملاء بسهولة</p>
+          <p id="resultCount">فلتر واستهدف العملاء بسهولة</p>
         </div>
-        <div class="filters">
-          <input id="searchInput" type="search" placeholder="بحث بالاسم أو الرقم..." />
+        <div class="filters" id="filtersPanel">
+          <input id="searchInput" type="search" placeholder="بحث بالاسم أو الرقم أو المدينة..." />
           <select id="interestFilter">
             <option value="all">كل الاهتمام</option>
             <option value="yes">مهتم</option>
@@ -159,11 +220,48 @@
             <option value="yes">محجوز</option>
             <option value="no">غير محجوز</option>
           </select>
+          <select id="statusFilter">
+            <option value="all">كل الحالات</option>
+            <option value="answered">تم الرد</option>
+            <option value="no_answer">لم يرد</option>
+            <option value="busy">مشغول</option>
+            <option value="callback">أعد الاتصال</option>
+            <option value="wrong_number">رقم خطأ</option>
+          </select>
+          <select id="priorityFilter">
+            <option value="all">كل الأولويات</option>
+            <option value="urgent">عاجل</option>
+            <option value="high">مهم</option>
+            <option value="normal">عادي</option>
+          </select>
+          <select id="sourceFilter">
+            <option value="all">كل المصادر</option>
+            <option value="ads">إعلان</option>
+            <option value="referral">توصية</option>
+            <option value="website">موقع</option>
+            <option value="cold">اتصال بارد</option>
+            <option value="other">أخرى</option>
+          </select>
+          <select id="agentFilter">
+            <option value="all">كل الموظفين</option>
+          </select>
+          <input id="dateFrom" type="date" title="من تاريخ متابعة" />
+          <input id="dateTo" type="date" title="إلى تاريخ متابعة" />
+          <select id="sortBy">
+            <option value="newest">الأحدث تسجيلًا</option>
+            <option value="followup_asc">المتابعة الأقرب</option>
+            <option value="followup_desc">المتابعة الأبعد</option>
+            <option value="priority">الأولوية</option>
+            <option value="name">الاسم</option>
+          </select>
           <select id="exportScope">
             <option value="filtered">تصدير المعروض</option>
             <option value="all">تصدير الكل</option>
             <option value="targets">المحتملين فقط</option>
+            <option value="today">متابعة اليوم</option>
+            <option value="hot">مهتم وغير محجوز</option>
           </select>
+          <button type="button" class="btn btn-ghost" id="clearFiltersBtn">مسح الفلاتر</button>
         </div>
       </div>
 
@@ -174,11 +272,13 @@
               <tr>
                 <th>الاسم</th>
                 <th>الهاتف</th>
+                <th>الحالة</th>
                 <th>مهتم؟</th>
                 <th>حجز؟</th>
-                <th>اليوم</th>
+                <th>أولوية</th>
+                <th>المتابعة</th>
+                <th>المدينة</th>
                 <th>الخدمة</th>
-                <th>التفاصيل</th>
                 <th>إجراءات</th>
               </tr>
             </thead>
