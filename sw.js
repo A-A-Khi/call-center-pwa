@@ -1,4 +1,4 @@
-const CACHE = "callcenter-pwa-v1";
+const CACHE = "callcenter-pwa-v2";
 const ASSETS = [
   "./",
   "./index.html",

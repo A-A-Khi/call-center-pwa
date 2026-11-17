@@ -19,6 +19,7 @@
   const bookedFilter = document.getElementById("bookedFilter");
   const exportScope = document.getElementById("exportScope");
   const leadsBody = document.getElementById("leadsBody");
+  const leadsCards = document.getElementById("leadsCards");
   const emptyState = document.getElementById("emptyState");
   const toast = document.getElementById("toast");
   const installBtn = document.getElementById("installBtn");
@@ -141,9 +142,19 @@
     );
   }
 
+  function actionButtons(id) {
+    return `
+      <div class="row-actions">
+        <button type="button" class="btn btn-tiny" data-edit="${id}">تعديل</button>
+        <button type="button" class="btn btn-danger" data-delete="${id}">حذف</button>
+      </div>
+    `;
+  }
+
   function renderTable() {
     const rows = getFilteredLeads();
     leadsBody.innerHTML = "";
+    leadsCards.innerHTML = "";
     emptyState.classList.toggle("visible", rows.length === 0);
 
     rows.forEach((lead) => {
@@ -153,17 +164,35 @@
         <td dir="ltr">${escapeHtml(lead.phone)}</td>
         <td><span class="badge ${badgeClass(lead.interested)}">${interestLabel(lead.interested)}</span></td>
         <td><span class="badge ${badgeClass(lead.booked)}">${bookedLabel(lead.booked)}</span></td>
-        <td>${escapeHtml(formatDate(lead.followUpDate))}${lead.preferredTime ? `<div style="color:var(--muted);font-size:0.8rem">${escapeHtml(lead.preferredTime)}</div>` : ""}</td>
+        <td>${escapeHtml(formatDate(lead.followUpDate))}${lead.preferredTime ? `<div class="muted-note">${escapeHtml(lead.preferredTime)}</div>` : ""}</td>
         <td>${escapeHtml(lead.service || "—")}</td>
         <td class="details-cell" title="${escapeHtml(lead.details || "")}">${escapeHtml(lead.details || "—")}</td>
-        <td>
-          <div class="row-actions">
-            <button type="button" class="btn btn-tiny" data-edit="${lead.id}">تعديل</button>
-            <button type="button" class="btn btn-danger" data-delete="${lead.id}">حذف</button>
-          </div>
-        </td>
+        <td>${actionButtons(lead.id)}</td>
       `;
       leadsBody.appendChild(tr);
+
+      const card = document.createElement("article");
+      card.className = "lead-card";
+      card.innerHTML = `
+        <div class="lead-card-top">
+          <div>
+            <h3>${escapeHtml(lead.customerName)}</h3>
+            <a class="phone-link" href="tel:${escapeHtml(lead.phone)}" dir="ltr">${escapeHtml(lead.phone)}</a>
+          </div>
+          <div class="lead-card-badges">
+            <span class="badge ${badgeClass(lead.interested)}">${interestLabel(lead.interested)}</span>
+            <span class="badge ${badgeClass(lead.booked)}">حجز: ${bookedLabel(lead.booked)}</span>
+          </div>
+        </div>
+        <dl class="lead-card-meta">
+          <div><dt>اليوم</dt><dd>${escapeHtml(formatDate(lead.followUpDate))}</dd></div>
+          <div><dt>الوقت</dt><dd>${escapeHtml(lead.preferredTime || "—")}</dd></div>
+          <div><dt>الخدمة</dt><dd>${escapeHtml(lead.service || "—")}</dd></div>
+        </dl>
+        ${lead.details ? `<p class="lead-card-details">${escapeHtml(lead.details)}</p>` : ""}
+        ${actionButtons(lead.id)}
+      `;
+      leadsCards.appendChild(card);
     });
   }
 
@@ -239,7 +268,7 @@
     showToast("تم إلغاء التعديل");
   });
 
-  leadsBody.addEventListener("click", (e) => {
+  function handleLeadAction(e) {
     const editId = e.target.getAttribute("data-edit");
     const deleteId = e.target.getAttribute("data-delete");
 
@@ -274,7 +303,10 @@
       refresh();
       showToast("تم حذف العميل");
     }
-  });
+  }
+
+  leadsBody.addEventListener("click", handleLeadAction);
+  leadsCards.addEventListener("click", handleLeadAction);
 
   [searchInput, interestFilter, bookedFilter].forEach((el) => {
     el.addEventListener("input", renderTable);

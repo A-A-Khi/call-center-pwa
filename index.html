@@ -156,22 +156,25 @@
         </div>
       </div>
 
-      <div class="table-wrap">
-        <table class="leads-table" id="leadsTable">
-          <thead>
-            <tr>
-              <th>الاسم</th>
-              <th>الهاتف</th>
-              <th>مهتم؟</th>
-              <th>حجز؟</th>
-              <th>اليوم</th>
-              <th>الخدمة</th>
-              <th>التفاصيل</th>
-              <th>إجراءات</th>
-            </tr>
-          </thead>
-          <tbody id="leadsBody"></tbody>
-        </table>
+      <div class="leads-list" id="leadsList">
+        <div class="table-wrap desktop-only">
+          <table class="leads-table" id="leadsTable">
+            <thead>
+              <tr>
+                <th>الاسم</th>
+                <th>الهاتف</th>
+                <th>مهتم؟</th>
+                <th>حجز؟</th>
+                <th>اليوم</th>
+                <th>الخدمة</th>
+                <th>التفاصيل</th>
+                <th>إجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="leadsBody"></tbody>
+          </table>
+        </div>
+        <div class="leads-cards mobile-only" id="leadsCards" aria-live="polite"></div>
         <p class="empty-state" id="emptyState">لا توجد عملاء بعد — ابدأ بتسجيل أول مكالمة.</p>
       </div>
     </section>
