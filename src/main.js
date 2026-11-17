@@ -19,6 +19,7 @@ const customerName = document.getElementById("customerName");
 const phone = document.getElementById("phone");
 const phoneHint = document.getElementById("phoneHint");
 const followUpDate = document.getElementById("followUpDate");
+const lastContactDate = document.getElementById("lastContactDate");
 const preferredTime = document.getElementById("preferredTime");
 const service = document.getElementById("service");
 const city = document.getElementById("city");
@@ -33,6 +34,7 @@ const cancelEditBtn = document.getElementById("cancelEditBtn");
 const searchInput = document.getElementById("searchInput");
 const interestFilter = document.getElementById("interestFilter");
 const bookedFilter = document.getElementById("bookedFilter");
+const contactedFilter = document.getElementById("contactedFilter");
 const statusFilter = document.getElementById("statusFilter");
 const priorityFilter = document.getElementById("priorityFilter");
 const sourceFilter = document.getElementById("sourceFilter");
@@ -89,6 +91,10 @@ function interestLabel(value) {
 
 function bookedLabel(value) {
   return value === "yes" ? "نعم" : "لا";
+}
+
+function contactedLabel(value) {
+  return value === "yes" ? "تم التواصل" : "لم يتم";
 }
 
 function statusLabel(value) {
@@ -167,8 +173,10 @@ function resetForm(keepAgent = true) {
   leadId.value = "";
   setSelected("interested", "yes");
   setSelected("booked", "no");
+  setSelected("contacted", "no");
   callStatus.value = "answered";
   priority.value = "normal";
+  lastContactDate.value = "";
   agentName.value = agent;
   phoneHint.hidden = true;
   saveBtn.textContent = "حفظ العميل";
@@ -213,6 +221,8 @@ function matchesQuick(lead) {
       return lead.interested === "yes" || lead.interested === "maybe";
     case "callback":
       return lead.callStatus === "callback" || lead.callStatus === "no_answer";
+    case "not_contacted":
+      return lead.contacted !== "yes";
     case "priority":
       return lead.priority === "high" || lead.priority === "urgent";
     default:
@@ -224,6 +234,7 @@ function getFilteredLeads() {
   const q = searchInput.value.trim().toLowerCase();
   const interest = interestFilter.value;
   const booked = bookedFilter.value;
+  const contacted = contactedFilter.value;
   const status = statusFilter.value;
   const prio = priorityFilter.value;
   const src = sourceFilter.value;
@@ -241,6 +252,7 @@ function getFilteredLeads() {
       lead.agentName,
       sourceLabel(lead.source),
       statusLabel(lead.callStatus),
+      contactedLabel(lead.contacted),
     ]
       .join(" ")
       .toLowerCase();
@@ -248,6 +260,8 @@ function getFilteredLeads() {
     const matchesQuery = !q || hay.includes(q);
     const matchesInterest = interest === "all" || lead.interested === interest;
     const matchesBooked = booked === "all" || lead.booked === booked;
+    const leadContacted = lead.contacted === "yes" ? "yes" : "no";
+    const matchesContacted = contacted === "all" || leadContacted === contacted;
     const matchesStatus = status === "all" || (lead.callStatus || "answered") === status;
     const matchesPriority = prio === "all" || (lead.priority || "normal") === prio;
     const matchesSource = src === "all" || lead.source === src;
@@ -258,6 +272,7 @@ function getFilteredLeads() {
       matchesQuery &&
       matchesInterest &&
       matchesBooked &&
+      matchesContacted &&
       matchesStatus &&
       matchesPriority &&
       matchesSource &&
@@ -353,12 +368,15 @@ function renderTable() {
     const tr = document.createElement("tr");
     if (overdue) tr.classList.add("row-overdue");
     if (today) tr.classList.add("row-today");
+    const contacted = lead.contacted === "yes" ? "yes" : "no";
     tr.innerHTML = `
       <td>
         <strong>${escapeHtml(lead.customerName)}</strong>
         ${lead.agentName ? `<div class="muted-note">${escapeHtml(lead.agentName)}</div>` : ""}
       </td>
       <td dir="ltr"><a class="phone-link" href="tel:${escapeHtml(lead.phone)}">${escapeHtml(lead.phone)}</a></td>
+      <td><span class="badge ${badgeClass(contacted)}">${contactedLabel(contacted)}</span></td>
+      <td>${escapeHtml(formatDate(lead.lastContactDate))}</td>
       <td><span class="badge ${badgeClass(status)}">${statusLabel(status)}</span></td>
       <td><span class="badge ${badgeClass(lead.interested)}">${interestLabel(lead.interested)}</span></td>
       <td><span class="badge ${badgeClass(lead.booked)}">${bookedLabel(lead.booked)}</span></td>
@@ -387,12 +405,14 @@ function renderTable() {
           <a class="phone-link" href="tel:${escapeHtml(lead.phone)}" dir="ltr">${escapeHtml(lead.phone)}</a>
         </div>
         <div class="lead-card-badges">
+          <span class="badge ${badgeClass(lead.contacted === "yes" ? "yes" : "no")}">${contactedLabel(lead.contacted === "yes" ? "yes" : "no")}</span>
           <span class="badge ${badgeClass(status)}">${statusLabel(status)}</span>
           <span class="badge ${badgeClass(lead.interested)}">${interestLabel(lead.interested)}</span>
           <span class="badge ${badgeClass(prio)}">${priorityLabel(prio)}</span>
         </div>
       </div>
       <dl class="lead-card-meta">
+        <div><dt>آخر تواصل</dt><dd>${escapeHtml(formatDate(lead.lastContactDate))}</dd></div>
         <div><dt>المتابعة</dt><dd>${escapeHtml(formatDate(lead.followUpDate))}${today ? " · اليوم" : ""}${overdue ? " · متأخر" : ""}</dd></div>
         <div><dt>المدينة</dt><dd>${escapeHtml(lead.city || "—")}</dd></div>
         <div><dt>الخدمة</dt><dd>${escapeHtml(lead.service || "—")}</dd></div>
@@ -454,11 +474,19 @@ form.addEventListener("submit", async (e) => {
     return;
   }
 
+  const contactedValue = getSelected("contacted") || "no";
+  let lastContactValue = lastContactDate.value;
+  if (contactedValue === "yes" && !lastContactValue) {
+    lastContactValue = todayISO();
+  }
+
   const payload = {
     customerName: name,
     phone: phoneValue,
     interested: getSelected("interested"),
     booked: getSelected("booked"),
+    contacted: contactedValue,
+    lastContactDate: lastContactValue,
     callStatus: callStatus.value || "answered",
     priority: priority.value || "normal",
     followUpDate: followUpDate.value,
@@ -520,9 +548,11 @@ async function handleLeadAction(e) {
     phone.value = lead.phone;
     setSelected("interested", lead.interested || "yes");
     setSelected("booked", lead.booked || "no");
+    setSelected("contacted", lead.contacted === "yes" ? "yes" : "no");
     callStatus.value = lead.callStatus || "answered";
     priority.value = lead.priority || "normal";
     followUpDate.value = lead.followUpDate || "";
+    lastContactDate.value = lead.lastContactDate || "";
     preferredTime.value = lead.preferredTime || "";
     service.value = lead.service || "";
     city.value = lead.city || "";
@@ -560,6 +590,7 @@ leadsCards.addEventListener("click", handleLeadAction);
   searchInput,
   interestFilter,
   bookedFilter,
+  contactedFilter,
   statusFilter,
   priorityFilter,
   sourceFilter,
@@ -570,6 +601,14 @@ leadsCards.addEventListener("click", handleLeadAction);
 ].forEach((el) => {
   el.addEventListener("input", renderTable);
   el.addEventListener("change", renderTable);
+});
+
+form.querySelectorAll('input[name="contacted"]').forEach((el) => {
+  el.addEventListener("change", () => {
+    if (getSelected("contacted") === "yes" && !lastContactDate.value) {
+      lastContactDate.value = todayISO();
+    }
+  });
 });
 
 quickFilters.addEventListener("click", (e) => {
@@ -586,6 +625,7 @@ clearFiltersBtn.addEventListener("click", () => {
   searchInput.value = "";
   interestFilter.value = "all";
   bookedFilter.value = "all";
+  contactedFilter.value = "all";
   statusFilter.value = "all";
   priorityFilter.value = "all";
   sourceFilter.value = "all";
@@ -607,6 +647,8 @@ function toSheetRows(list) {
     "#": index + 1,
     "اسم العميل": lead.customerName,
     "رقم الهاتف": lead.phone,
+    التواصل: contactedLabel(lead.contacted === "yes" ? "yes" : "no"),
+    "تاريخ آخر تواصل": lead.lastContactDate || "",
     "حالة المكالمة": statusLabel(lead.callStatus || "answered"),
     "مهتم بالخدمة": interestLabel(lead.interested),
     "تم الحجز": bookedLabel(lead.booked),
@@ -637,6 +679,8 @@ function summaryRows(list) {
     { المؤشر: "متابعة اليوم", القيمة: list.filter(isTodayFollowUp).length },
     { المؤشر: "متأخر", القيمة: list.filter(isOverdue).length },
     { المؤشر: "أعد الاتصال / لم يرد", القيمة: list.filter((l) => l.callStatus === "callback" || l.callStatus === "no_answer").length },
+    { المؤشر: "تم التواصل", القيمة: list.filter((l) => l.contacted === "yes").length },
+    { المؤشر: "لم يتم التواصل", القيمة: list.filter((l) => l.contacted !== "yes").length },
   ];
 }
 

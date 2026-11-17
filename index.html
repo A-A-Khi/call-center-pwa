@@ -88,6 +88,20 @@
         </div>
 
         <div class="grid-2">
+          <fieldset class="choice-group">
+            <legend>تم التواصل؟</legend>
+            <div class="choice-row">
+              <label class="choice"><input type="radio" name="contacted" value="yes" /><span>تم التواصل</span></label>
+              <label class="choice"><input type="radio" name="contacted" value="no" checked /><span>لم يتم</span></label>
+            </div>
+          </fieldset>
+          <label class="field">
+            <span>تاريخ آخر تواصل</span>
+            <input id="lastContactDate" name="lastContactDate" type="date" />
+          </label>
+        </div>
+
+        <div class="grid-2">
           <label class="field">
             <span>حالة المكالمة</span>
             <select id="callStatus" name="callStatus">
@@ -199,6 +213,7 @@
         <button type="button" class="chip" data-quick="hot">مهتم وغير محجوز</button>
         <button type="button" class="chip" data-quick="targets">محتملين</button>
         <button type="button" class="chip" data-quick="callback">أعد الاتصال</button>
+        <button type="button" class="chip" data-quick="not_contacted">لم يتم التواصل</button>
         <button type="button" class="chip" data-quick="priority">أولوية عالية</button>
       </div>
 
@@ -219,6 +234,11 @@
             <option value="all">كل الحجوزات</option>
             <option value="yes">محجوز</option>
             <option value="no">غير محجوز</option>
+          </select>
+          <select id="contactedFilter">
+            <option value="all">كل التواصل</option>
+            <option value="yes">تم التواصل</option>
+            <option value="no">لم يتم التواصل</option>
           </select>
           <select id="statusFilter">
             <option value="all">كل الحالات</option>
@@ -272,6 +292,8 @@
               <tr>
                 <th>الاسم</th>
                 <th>الهاتف</th>
+                <th>التواصل</th>
+                <th>آخر تواصل</th>
                 <th>الحالة</th>
                 <th>مهتم؟</th>
                 <th>حجز؟</th>
