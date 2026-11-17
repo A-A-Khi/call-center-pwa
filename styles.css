@@ -69,9 +69,92 @@ body {
 
 .topbar,
 .layout,
-.toast {
+.toast,
+.sync-bar,
+.setup-panel {
   position: relative;
   z-index: 1;
+}
+
+.sync-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  margin: 0.75rem auto 0;
+  max-width: 1280px;
+  padding: 0.55rem 1rem;
+  border-radius: 999px;
+  width: calc(100% - 2 * var(--pad));
+  font-size: 0.9rem;
+  font-weight: 700;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.sync-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  background: #9aa8a6;
+  flex: 0 0 auto;
+}
+
+.sync-bar[data-state="loading"] .sync-dot {
+  background: var(--sand);
+  animation: pulseDot 1s ease-in-out infinite;
+}
+
+.sync-bar[data-state="online"] {
+  background: var(--success-soft);
+  border-color: rgba(31, 122, 77, 0.18);
+  color: var(--success);
+}
+
+.sync-bar[data-state="online"] .sync-dot {
+  background: var(--success);
+}
+
+.sync-bar[data-state="error"] {
+  background: var(--danger-soft);
+  border-color: rgba(180, 35, 24, 0.15);
+  color: var(--danger);
+}
+
+.sync-bar[data-state="error"] .sync-dot {
+  background: var(--danger);
+}
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 0.35; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+.setup-panel {
+  max-width: 1280px;
+  margin: 0.9rem auto 0;
+  width: calc(100% - 2 * var(--pad));
+}
+
+.setup-steps {
+  margin: 0.9rem 0 0;
+  padding-inline-start: 1.2rem;
+  display: grid;
+  gap: 0.55rem;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.setup-steps a {
+  color: var(--teal-deep);
+  font-weight: 800;
+}
+
+.setup-steps code {
+  background: var(--teal-soft);
+  padding: 0.1rem 0.35rem;
+  border-radius: 6px;
+  font-size: 0.86em;
 }
 
 .topbar {

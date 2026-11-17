@@ -14,11 +14,16 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=3" />
+  <link rel="stylesheet" href="styles.css?v=4" />
   <title>كول سنتر — تسجيل العملاء</title>
 </head>
 <body>
   <div class="bg-glow" aria-hidden="true"></div>
+
+  <div class="sync-bar" id="syncBar" data-state="loading">
+    <span class="sync-dot" aria-hidden="true"></span>
+    <span id="syncText">جاري الاتصال بقاعدة البيانات المشتركة...</span>
+  </div>
 
   <header class="topbar">
     <div class="brand">
@@ -34,6 +39,20 @@
       <button type="button" class="btn btn-primary" id="exportXlsxBtn">تصدير Excel</button>
     </div>
   </header>
+
+  <section class="setup-panel panel" id="setupPanel" hidden>
+    <div class="panel-head">
+      <h2>تفعيل السجل المشترك للفريق</h2>
+      <p>خطوة واحدة عشان كل الموظفين يشوفوا نفس العملاء</p>
+    </div>
+    <ol class="setup-steps">
+      <li>افتح <a href="https://console.firebase.google.com/" target="_blank" rel="noopener">Firebase Console</a> وسجّل بجوجل</li>
+      <li>Create project → اسم مثل <strong>call-center</strong></li>
+      <li>Build → Firestore Database → Create database → Start in <strong>test mode</strong></li>
+      <li>Project settings → Your apps → Web ← انسخ الـ <code>firebaseConfig</code></li>
+      <li>ابعتلي الإعدادات هنا أو الصقها في ملف <code>firebase-config.js</code></li>
+    </ol>
+  </section>
 
   <main class="layout">
     <section class="panel form-panel" aria-labelledby="form-title">
@@ -182,7 +201,10 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+  <script src="https://www.gstatic.com/firebasejs/11.0.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore-compat.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="app.js?v=3"></script>
+  <script src="firebase-config.js?v=4"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>

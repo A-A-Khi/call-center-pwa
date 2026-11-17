@@ -1,9 +1,10 @@
-const CACHE = "callcenter-pwa-v3";
+const CACHE = "callcenter-pwa-v4";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
+  "./firebase-config.js",
   "./manifest.webmanifest",
   "./icons/icon.svg",
 ];

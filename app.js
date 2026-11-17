@@ -1,6 +1,6 @@
 (() => {
-  const STORAGE_KEY = "callcenter_leads_v1";
   const AGENT_KEY = "callcenter_last_agent";
+  const COLLECTION = "leads";
 
   const form = document.getElementById("leadForm");
   const leadId = document.getElementById("leadId");
@@ -25,29 +25,31 @@
   const installBtn = document.getElementById("installBtn");
   const exportCsvBtn = document.getElementById("exportCsvBtn");
   const exportXlsxBtn = document.getElementById("exportXlsxBtn");
+  const syncBar = document.getElementById("syncBar");
+  const syncText = document.getElementById("syncText");
+  const setupPanel = document.getElementById("setupPanel");
 
-  let leads = loadLeads();
+  let leads = [];
+  let db = null;
   let deferredPrompt = null;
   let toastTimer = null;
+  let saving = false;
 
   agentName.value = localStorage.getItem(AGENT_KEY) || "";
 
-  function loadLeads() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      const parsed = raw ? JSON.parse(raw) : [];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
+  function setSyncState(state, message) {
+    syncBar.dataset.state = state;
+    syncText.textContent = message;
   }
 
-  function saveLeads() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(leads));
-  }
-
-  function uid() {
-    return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  function isConfigured() {
+    const cfg = window.FIREBASE_CONFIG || {};
+    return Boolean(
+      cfg.apiKey &&
+        cfg.projectId &&
+        !String(cfg.apiKey).startsWith("PASTE_") &&
+        !String(cfg.projectId).startsWith("PASTE_")
+    );
   }
 
   function showToast(message) {
@@ -151,6 +153,15 @@
     `;
   }
 
+  function escapeHtml(str) {
+    return String(str)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+  }
+
   function renderTable() {
     const rows = getFilteredLeads();
     leadsBody.innerHTML = "";
@@ -196,22 +207,33 @@
     });
   }
 
-  function escapeHtml(str) {
-    return String(str)
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#39;");
-  }
-
   function refresh() {
     updateStats();
     renderTable();
   }
 
-  form.addEventListener("submit", (e) => {
+  async function upsertLead(payload, id) {
+    if (!db) throw new Error("db-not-ready");
+    if (id) {
+      await db.collection(COLLECTION).doc(id).set(payload, { merge: true });
+      return id;
+    }
+    const ref = await db.collection(COLLECTION).add(payload);
+    return ref.id;
+  }
+
+  async function removeLead(id) {
+    if (!db) throw new Error("db-not-ready");
+    await db.collection(COLLECTION).doc(id).delete();
+  }
+
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
+    if (!db) {
+      showToast("قاعدة البيانات المشتركة غير مفعلة بعد");
+      return;
+    }
+    if (saving) return;
 
     const name = customerName.value.trim();
     const phoneValue = phone.value.trim();
@@ -233,29 +255,28 @@
       updatedAt: new Date().toISOString(),
     };
 
+    if (!leadId.value) {
+      payload.createdAt = new Date().toISOString();
+    }
+
     if (agentName.value.trim()) {
       localStorage.setItem(AGENT_KEY, agentName.value.trim());
     }
 
-    if (leadId.value) {
-      const idx = leads.findIndex((l) => l.id === leadId.value);
-      if (idx !== -1) {
-        leads[idx] = { ...leads[idx], ...payload };
-        showToast("تم تحديث بيانات العميل");
-      }
-    } else {
-      leads.unshift({
-        id: uid(),
-        createdAt: new Date().toISOString(),
-        ...payload,
-      });
-      showToast("تم حفظ العميل بنجاح");
+    saving = true;
+    saveBtn.disabled = true;
+    try {
+      await upsertLead(payload, leadId.value || null);
+      showToast(leadId.value ? "تم تحديث بيانات العميل" : "تم حفظ العميل للفريق كله");
+      resetForm(true);
+      customerName.focus();
+    } catch (err) {
+      console.error(err);
+      showToast("فشل الحفظ — تحقق من الاتصال أو قواعد Firestore");
+    } finally {
+      saving = false;
+      saveBtn.disabled = false;
     }
-
-    saveLeads();
-    resetForm(true);
-    refresh();
-    customerName.focus();
   });
 
   resetBtn.addEventListener("click", () => {
@@ -268,7 +289,7 @@
     showToast("تم إلغاء التعديل");
   });
 
-  function handleLeadAction(e) {
+  async function handleLeadAction(e) {
     const editId = e.target.getAttribute("data-edit");
     const deleteId = e.target.getAttribute("data-delete");
 
@@ -295,13 +316,16 @@
     if (deleteId) {
       const lead = leads.find((l) => l.id === deleteId);
       if (!lead) return;
-      const ok = confirm(`حذف العميل "${lead.customerName}"؟`);
+      const ok = confirm(`حذف العميل "${lead.customerName}" من سجل الفريق؟`);
       if (!ok) return;
-      leads = leads.filter((l) => l.id !== deleteId);
-      saveLeads();
-      if (leadId.value === deleteId) resetForm(true);
-      refresh();
-      showToast("تم حذف العميل");
+      try {
+        await removeLead(deleteId);
+        if (leadId.value === deleteId) resetForm(true);
+        showToast("تم حذف العميل من السجل المشترك");
+      } catch (err) {
+        console.error(err);
+        showToast("فشل الحذف");
+      }
     }
   }
 
@@ -323,7 +347,7 @@
       "يوم المتابعة": lead.followUpDate || "",
       "وقت مناسب": lead.preferredTime || "",
       "الخدمة / العرض": lead.service || "",
-      "التفاصيل": lead.details || "",
+      التفاصيل: lead.details || "",
       "اسم الموظف": lead.agentName || "",
       "تاريخ التسجيل": lead.createdAt
         ? new Date(lead.createdAt).toLocaleString("ar-EG")
@@ -448,11 +472,57 @@
     installBtn.hidden = true;
   });
 
+  function startSharedSync() {
+    if (!isConfigured()) {
+      setupPanel.hidden = false;
+      setSyncState("error", "السجل المشترك غير مفعل — أكمِل إعداد Firebase");
+      refresh();
+      return;
+    }
+
+    if (typeof firebase === "undefined") {
+      setupPanel.hidden = false;
+      setSyncState("error", "تعذر تحميل Firebase");
+      return;
+    }
+
+    try {
+      firebase.initializeApp(window.FIREBASE_CONFIG);
+      db = firebase.firestore();
+    } catch (err) {
+      console.error(err);
+      setupPanel.hidden = false;
+      setSyncState("error", "إعدادات Firebase غير صحيحة");
+      return;
+    }
+
+    setupPanel.hidden = true;
+    setSyncState("loading", "جاري مزامنة سجل الفريق...");
+
+    db.collection(COLLECTION).onSnapshot(
+      (snapshot) => {
+        leads = snapshot.docs
+          .map((doc) => ({ id: doc.id, ...doc.data() }))
+          .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+        refresh();
+        setSyncState("online", `متصل — سجل مشترك للفريق (${leads.length})`);
+      },
+      (err) => {
+        console.error(err);
+        setSyncState(
+          "error",
+          "فشل الاتصال بـ Firestore — فعّل Test mode أو انشر القواعد من firestore.rules.txt"
+        );
+        setupPanel.hidden = false;
+      }
+    );
+  }
+
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker.register("./sw.js").catch(() => {});
     });
   }
 
-  refresh();
+  startSharedSync();
 })();

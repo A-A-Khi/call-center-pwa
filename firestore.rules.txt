@@ -1,0 +1,9 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // للاستخدام الداخلي في الكول سنتر — أي شخص معه رابط التطبيق يقدر يقرأ ويكتب
+    match /leads/{leadId} {
+      allow read, write: if true;
+    }
+  }
+}
