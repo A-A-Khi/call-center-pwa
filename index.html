@@ -16,7 +16,7 @@
   <link rel="stylesheet" href="./styles.css" />
   <title>كول سنتر — تسجيل العملاء</title>
 </head>
-<body>
+<body data-view="form">
   <div class="bg-glow" aria-hidden="true"></div>
 
   <div class="sync-bar" id="syncBar" data-state="loading">
@@ -47,7 +47,7 @@
   </section>
 
   <main class="layout">
-    <section class="panel form-panel" aria-labelledby="form-title">
+    <section class="panel form-panel" id="formPanel" aria-labelledby="form-title">
       <div class="panel-head">
         <h2 id="form-title">تسجيل مكالمة جديدة</h2>
         <p>املأ البيانات بسرعة أثناء المكالمة</p>
@@ -56,119 +56,127 @@
       <form id="leadForm" class="lead-form" autocomplete="off">
         <input type="hidden" id="leadId" />
 
-        <div class="grid-2">
-          <label class="field">
-            <span>اسم العميل</span>
-            <input id="customerName" name="customerName" type="text" placeholder="مثال: أحمد محمد" required />
-          </label>
-          <label class="field">
-            <span>رقم الهاتف</span>
-            <input id="phone" name="phone" type="tel" inputmode="tel" placeholder="01xxxxxxxxx" required />
-            <small class="field-hint" id="phoneHint" hidden></small>
-          </label>
-        </div>
+        <fieldset class="form-section">
+          <legend class="form-section-title">بيانات العميل</legend>
+          <div class="grid-2">
+            <label class="field">
+              <span>اسم العميل</span>
+              <input id="customerName" name="customerName" type="text" placeholder="مثال: أحمد محمد" required />
+            </label>
+            <label class="field">
+              <span>رقم الهاتف</span>
+              <input id="phone" name="phone" type="tel" inputmode="tel" placeholder="01xxxxxxxxx" required />
+              <small class="field-hint" id="phoneHint" hidden></small>
+            </label>
+          </div>
+          <div class="grid-2">
+            <label class="field">
+              <span>المدينة / المنطقة</span>
+              <input id="city" name="city" type="text" placeholder="مثال: القاهرة" list="citySuggestions" />
+              <datalist id="citySuggestions"></datalist>
+            </label>
+            <label class="field">
+              <span>مصدر العميل</span>
+              <select id="source" name="source">
+                <option value="">غير محدد</option>
+                <option value="ads">إعلان</option>
+                <option value="referral">توصية</option>
+                <option value="website">موقع</option>
+                <option value="cold">اتصال بارد</option>
+                <option value="other">أخرى</option>
+              </select>
+            </label>
+          </div>
+        </fieldset>
 
-        <div class="grid-2">
-          <fieldset class="choice-group">
-            <legend>مهتم بالخدمة؟</legend>
-            <div class="choice-row">
-              <label class="choice"><input type="radio" name="interested" value="yes" checked /><span>نعم</span></label>
-              <label class="choice"><input type="radio" name="interested" value="maybe" /><span>محتمل</span></label>
-              <label class="choice"><input type="radio" name="interested" value="no" /><span>لا</span></label>
-            </div>
-          </fieldset>
+        <fieldset class="form-section">
+          <legend class="form-section-title">نتيجة المكالمة</legend>
+          <div class="grid-2">
+            <fieldset class="choice-group">
+              <legend>مهتم بالخدمة؟</legend>
+              <div class="choice-row">
+                <label class="choice"><input type="radio" name="interested" value="yes" checked /><span>نعم</span></label>
+                <label class="choice"><input type="radio" name="interested" value="maybe" /><span>محتمل</span></label>
+                <label class="choice"><input type="radio" name="interested" value="no" /><span>لا</span></label>
+              </div>
+            </fieldset>
 
-          <fieldset class="choice-group">
-            <legend>تم الحجز؟</legend>
-            <div class="choice-row">
-              <label class="choice"><input type="radio" name="booked" value="yes" /><span>نعم</span></label>
-              <label class="choice"><input type="radio" name="booked" value="no" checked /><span>لا</span></label>
-            </div>
-          </fieldset>
-        </div>
+            <fieldset class="choice-group">
+              <legend>تم الحجز؟</legend>
+              <div class="choice-row choice-row-2">
+                <label class="choice"><input type="radio" name="booked" value="yes" /><span>نعم</span></label>
+                <label class="choice"><input type="radio" name="booked" value="no" checked /><span>لا</span></label>
+              </div>
+            </fieldset>
+          </div>
 
-        <div class="grid-2">
-          <fieldset class="choice-group">
-            <legend>تم التواصل؟</legend>
-            <div class="choice-row">
-              <label class="choice"><input type="radio" name="contacted" value="yes" /><span>تم التواصل</span></label>
-              <label class="choice"><input type="radio" name="contacted" value="no" checked /><span>لم يتم</span></label>
-            </div>
-          </fieldset>
-          <label class="field">
-            <span>تاريخ آخر تواصل</span>
-            <input id="lastContactDate" name="lastContactDate" type="date" />
-          </label>
-        </div>
+          <div class="grid-2">
+            <fieldset class="choice-group">
+              <legend>تم التواصل؟</legend>
+              <div class="choice-row choice-row-2">
+                <label class="choice"><input type="radio" name="contacted" value="yes" /><span>تم التواصل</span></label>
+                <label class="choice"><input type="radio" name="contacted" value="no" checked /><span>لم يتم</span></label>
+              </div>
+            </fieldset>
+            <label class="field">
+              <span>تاريخ آخر تواصل</span>
+              <input id="lastContactDate" name="lastContactDate" type="date" />
+            </label>
+          </div>
 
-        <div class="grid-2">
-          <label class="field">
-            <span>حالة المكالمة</span>
-            <select id="callStatus" name="callStatus">
-              <option value="answered">تم الرد</option>
-              <option value="no_answer">لم يرد</option>
-              <option value="busy">مشغول</option>
-              <option value="callback">أعد الاتصال</option>
-              <option value="wrong_number">رقم خطأ</option>
-            </select>
-          </label>
-          <label class="field">
-            <span>الأولوية</span>
-            <select id="priority" name="priority">
-              <option value="normal">عادي</option>
-              <option value="high">مهم</option>
-              <option value="urgent">عاجل</option>
-            </select>
-          </label>
-        </div>
+          <div class="grid-2">
+            <label class="field">
+              <span>حالة المكالمة</span>
+              <select id="callStatus" name="callStatus">
+                <option value="answered">تم الرد</option>
+                <option value="no_answer">لم يرد</option>
+                <option value="busy">مشغول</option>
+                <option value="callback">أعد الاتصال</option>
+                <option value="wrong_number">رقم خطأ</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>الأولوية</span>
+              <select id="priority" name="priority">
+                <option value="normal">عادي</option>
+                <option value="high">مهم</option>
+                <option value="urgent">عاجل</option>
+              </select>
+            </label>
+          </div>
+        </fieldset>
 
-        <div class="grid-2">
-          <label class="field">
-            <span>يوم المتابعة / الموعد</span>
-            <input id="followUpDate" name="followUpDate" type="date" />
-          </label>
-          <label class="field">
-            <span>وقت مناسب للاتصال</span>
-            <input id="preferredTime" name="preferredTime" type="text" placeholder="مثال: بعد الظهر" />
-          </label>
-        </div>
+        <fieldset class="form-section">
+          <legend class="form-section-title">المتابعة والعرض</legend>
+          <div class="grid-2">
+            <label class="field">
+              <span>يوم المتابعة / الموعد</span>
+              <input id="followUpDate" name="followUpDate" type="date" />
+            </label>
+            <label class="field">
+              <span>وقت مناسب للاتصال</span>
+              <input id="preferredTime" name="preferredTime" type="text" placeholder="مثال: بعد الظهر" />
+            </label>
+          </div>
 
-        <div class="grid-2">
-          <label class="field">
-            <span>الخدمة / العرض</span>
-            <input id="service" name="service" type="text" placeholder="مثال: اشتراك شهري" list="serviceSuggestions" />
-            <datalist id="serviceSuggestions"></datalist>
-          </label>
-          <label class="field">
-            <span>المدينة / المنطقة</span>
-            <input id="city" name="city" type="text" placeholder="مثال: القاهرة" list="citySuggestions" />
-            <datalist id="citySuggestions"></datalist>
-          </label>
-        </div>
+          <div class="grid-2">
+            <label class="field">
+              <span>الخدمة / العرض</span>
+              <input id="service" name="service" type="text" placeholder="مثال: اشتراك شهري" list="serviceSuggestions" />
+              <datalist id="serviceSuggestions"></datalist>
+            </label>
+            <label class="field">
+              <span>اسم الموظف</span>
+              <input id="agentName" name="agentName" type="text" placeholder="اسمك" list="agentSuggestions" />
+              <datalist id="agentSuggestions"></datalist>
+            </label>
+          </div>
 
-        <div class="grid-2">
           <label class="field">
-            <span>مصدر العميل</span>
-            <select id="source" name="source">
-              <option value="">غير محدد</option>
-              <option value="ads">إعلان</option>
-              <option value="referral">توصية</option>
-              <option value="website">موقع</option>
-              <option value="cold">اتصال بارد</option>
-              <option value="other">أخرى</option>
-            </select>
+            <span>التفاصيل والملاحظات</span>
+            <textarea id="details" name="details" rows="3" placeholder="ملاحظات المكالمة، الاعتراضات، ما يهتم به العميل..."></textarea>
           </label>
-          <label class="field">
-            <span>اسم الموظف</span>
-            <input id="agentName" name="agentName" type="text" placeholder="اسمك" list="agentSuggestions" />
-            <datalist id="agentSuggestions"></datalist>
-          </label>
-        </div>
-
-        <label class="field">
-          <span>التفاصيل والملاحظات</span>
-          <textarea id="details" name="details" rows="3" placeholder="ملاحظات المكالمة، الاعتراضات، ما يهتم به العميل..."></textarea>
-        </label>
+        </fieldset>
 
         <div class="form-actions">
           <button type="submit" class="btn btn-primary" id="saveBtn">حفظ العميل</button>
@@ -178,7 +186,7 @@
       </form>
     </section>
 
-    <section class="panel data-panel" aria-labelledby="list-title">
+    <section class="panel data-panel" id="dataPanel" aria-labelledby="list-title">
       <div class="stats" id="stats">
         <article class="stat">
           <span class="stat-label">الإجمالي</span>
@@ -204,10 +212,16 @@
           <span class="stat-label">متأخر</span>
           <strong id="statOverdue">0</strong>
         </article>
+        <article class="stat created">
+          <span class="stat-label">مسجل اليوم</span>
+          <strong id="statCreatedToday">0</strong>
+        </article>
       </div>
 
       <div class="quick-filters" id="quickFilters" role="tablist" aria-label="فلاتر سريعة">
         <button type="button" class="chip active" data-quick="all">الكل</button>
+        <button type="button" class="chip" data-quick="created_today">مسجل اليوم</button>
+        <button type="button" class="chip" data-quick="created_yesterday">مسجل أمس</button>
         <button type="button" class="chip" data-quick="today">متابعة اليوم</button>
         <button type="button" class="chip" data-quick="overdue">متأخر</button>
         <button type="button" class="chip" data-quick="hot">مهتم وغير محجوز</button>
@@ -217,13 +231,24 @@
         <button type="button" class="chip" data-quick="priority">أولوية عالية</button>
       </div>
 
-      <div class="panel-head row">
-        <div>
+      <div class="list-toolbar">
+        <div class="panel-head list-head">
           <h2 id="list-title">قائمة العملاء</h2>
           <p id="resultCount">فلتر واستهدف العملاء بسهولة</p>
         </div>
-        <div class="filters" id="filtersPanel">
-          <input id="searchInput" type="search" placeholder="بحث بالاسم أو الرقم أو المدينة..." />
+
+        <div class="toolbar-row">
+          <label class="search-field">
+            <span class="sr-only">بحث</span>
+            <input id="searchInput" type="search" placeholder="بحث بالاسم أو الرقم أو المدينة..." />
+          </label>
+          <button type="button" class="btn btn-ghost filters-toggle" id="filtersToggle" aria-expanded="false" aria-controls="filtersPanel">
+            فلاتر
+            <span class="filters-badge" id="filtersBadge" hidden>0</span>
+          </button>
+        </div>
+
+        <div class="filters" id="filtersPanel" hidden>
           <select id="interestFilter">
             <option value="all">كل الاهتمام</option>
             <option value="yes">مهتم</option>
@@ -265,8 +290,9 @@
           <select id="agentFilter">
             <option value="all">كل الموظفين</option>
           </select>
-          <input id="dateFrom" type="date" title="من تاريخ متابعة" />
-          <input id="dateTo" type="date" title="إلى تاريخ متابعة" />
+          <input id="createdOn" type="date" title="تاريخ التسجيل" aria-label="تاريخ التسجيل" />
+          <input id="dateFrom" type="date" title="من تاريخ متابعة" aria-label="من تاريخ متابعة" />
+          <input id="dateTo" type="date" title="إلى تاريخ متابعة" aria-label="إلى تاريخ متابعة" />
           <select id="sortBy">
             <option value="newest">الأحدث تسجيلًا</option>
             <option value="followup_asc">المتابعة الأقرب</option>
@@ -312,6 +338,18 @@
       </div>
     </section>
   </main>
+
+  <nav class="mobile-nav" id="mobileNav" aria-label="التنقل الرئيسي">
+    <button type="button" class="mobile-nav-btn active" data-view="form" id="navFormBtn">
+      <span class="mobile-nav-icon" aria-hidden="true">＋</span>
+      <span>تسجيل</span>
+    </button>
+    <button type="button" class="mobile-nav-btn" data-view="list" id="navListBtn">
+      <span class="mobile-nav-icon" aria-hidden="true">☰</span>
+      <span>العملاء</span>
+      <span class="mobile-nav-count" id="navListCount">0</span>
+    </button>
+  </nav>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 

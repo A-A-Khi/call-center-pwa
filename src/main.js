@@ -41,9 +41,13 @@ const sourceFilter = document.getElementById("sourceFilter");
 const agentFilter = document.getElementById("agentFilter");
 const dateFrom = document.getElementById("dateFrom");
 const dateTo = document.getElementById("dateTo");
+const createdOn = document.getElementById("createdOn");
 const sortBy = document.getElementById("sortBy");
 const exportScope = document.getElementById("exportScope");
 const clearFiltersBtn = document.getElementById("clearFiltersBtn");
+const filtersToggle = document.getElementById("filtersToggle");
+const filtersPanel = document.getElementById("filtersPanel");
+const filtersBadge = document.getElementById("filtersBadge");
 const quickFilters = document.getElementById("quickFilters");
 const resultCount = document.getElementById("resultCount");
 const leadsBody = document.getElementById("leadsBody");
@@ -56,6 +60,8 @@ const exportXlsxBtn = document.getElementById("exportXlsxBtn");
 const syncBar = document.getElementById("syncBar");
 const syncText = document.getElementById("syncText");
 const setupPanel = document.getElementById("setupPanel");
+const mobileNav = document.getElementById("mobileNav");
+const navListCount = document.getElementById("navListCount");
 
 let leads = [];
 let deferredPrompt = null;
@@ -65,10 +71,118 @@ let activeQuick = "all";
 
 agentName.value = localStorage.getItem(AGENT_KEY) || "";
 
+function pad2(n) {
+  return String(n).padStart(2, "0");
+}
+
 function todayISO() {
   const d = new Date();
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+function shiftISO(days) {
+  const d = new Date();
+  d.setHours(12, 0, 0, 0);
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+function yesterdayISO() {
+  return shiftISO(-1);
+}
+
+function createdDayKey(lead) {
+  if (!lead.createdAt) return "unknown";
+  const d = new Date(lead.createdAt);
+  if (Number.isNaN(d.getTime())) return "unknown";
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+function isCreatedToday(lead) {
+  return createdDayKey(lead) === todayISO();
+}
+
+function isCreatedYesterday(lead) {
+  return createdDayKey(lead) === yesterdayISO();
+}
+
+function dayGroupLabel(dayKey) {
+  if (dayKey === "unknown") return "بدون تاريخ تسجيل";
+  if (dayKey === todayISO()) return "اليوم";
+  if (dayKey === yesterdayISO()) return "أمس";
+  const d = new Date(`${dayKey}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return dayKey;
+  return d.toLocaleDateString("ar-EG", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function dayGroupModifier(dayKey) {
+  if (dayKey === todayISO()) return "is-today";
+  if (dayKey === yesterdayISO()) return "is-yesterday";
+  return "";
+}
+
+function formatCreatedAt(value) {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("ar-EG", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function groupLeadsByCreatedDay(rows) {
+  const map = new Map();
+  rows.forEach((lead) => {
+    const key = createdDayKey(lead);
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(lead);
+  });
+
+  return [...map.entries()].sort((a, b) => {
+    if (a[0] === "unknown") return 1;
+    if (b[0] === "unknown") return -1;
+    return b[0].localeCompare(a[0]);
+  });
+}
+
+function setMobileView(view) {
+  document.body.dataset.view = view;
+  if (!mobileNav) return;
+  mobileNav.querySelectorAll("[data-view]").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.view === view);
+  });
+}
+
+function countActiveFilters() {
+  let count = 0;
+  if (searchInput.value.trim()) count += 1;
+  if (interestFilter.value !== "all") count += 1;
+  if (bookedFilter.value !== "all") count += 1;
+  if (contactedFilter.value !== "all") count += 1;
+  if (statusFilter.value !== "all") count += 1;
+  if (priorityFilter.value !== "all") count += 1;
+  if (sourceFilter.value !== "all") count += 1;
+  if (agentFilter.value !== "all") count += 1;
+  if (createdOn?.value) count += 1;
+  if (dateFrom.value) count += 1;
+  if (dateTo.value) count += 1;
+  if (activeQuick !== "all") count += 1;
+  return count;
+}
+
+function updateFiltersBadge() {
+  if (!filtersBadge) return;
+  const count = countActiveFilters();
+  filtersBadge.hidden = count === 0;
+  filtersBadge.textContent = String(count);
 }
 
 function setSyncState(state, message) {
@@ -211,6 +325,10 @@ function refreshSuggestions() {
 
 function matchesQuick(lead) {
   switch (activeQuick) {
+    case "created_today":
+      return isCreatedToday(lead);
+    case "created_yesterday":
+      return isCreatedYesterday(lead);
     case "today":
       return isTodayFollowUp(lead);
     case "overdue":
@@ -241,6 +359,7 @@ function getFilteredLeads() {
   const agent = agentFilter.value;
   const from = dateFrom.value;
   const to = dateTo.value;
+  const createdDay = createdOn?.value || "";
 
   let rows = leads.filter((lead) => {
     const hay = [
@@ -268,6 +387,7 @@ function getFilteredLeads() {
     const matchesAgent = agent === "all" || lead.agentName === agent;
     const matchesFrom = !from || (lead.followUpDate && lead.followUpDate >= from);
     const matchesTo = !to || (lead.followUpDate && lead.followUpDate <= to);
+    const matchesCreatedOn = !createdDay || createdDayKey(lead) === createdDay;
     return (
       matchesQuery &&
       matchesInterest &&
@@ -279,6 +399,7 @@ function getFilteredLeads() {
       matchesAgent &&
       matchesFrom &&
       matchesTo &&
+      matchesCreatedOn &&
       matchesQuick(lead)
     );
   });
@@ -332,6 +453,13 @@ function updateStats() {
   );
   document.getElementById("statToday").textContent = String(leads.filter(isTodayFollowUp).length);
   document.getElementById("statOverdue").textContent = String(leads.filter(isOverdue).length);
+  const createdTodayEl = document.getElementById("statCreatedToday");
+  if (createdTodayEl) {
+    createdTodayEl.textContent = String(leads.filter(isCreatedToday).length);
+  }
+  if (navListCount) {
+    navListCount.textContent = String(leads.length);
+  }
 }
 
 function actionButtons(id) {
@@ -352,79 +480,138 @@ function escapeHtml(str) {
     .replaceAll("'", "&#39;");
 }
 
+function buildLeadCard(lead) {
+  const overdue = isOverdue(lead);
+  const today = isTodayFollowUp(lead);
+  const status = lead.callStatus || "answered";
+  const prio = lead.priority || "normal";
+  const card = document.createElement("article");
+  card.className = `lead-card${overdue ? " row-overdue" : ""}${today ? " row-today" : ""}`;
+  card.innerHTML = `
+    <div class="lead-card-top">
+      <div>
+        <h3>${escapeHtml(lead.customerName)}</h3>
+        <a class="phone-link" href="tel:${escapeHtml(lead.phone)}" dir="ltr">${escapeHtml(lead.phone)}</a>
+        <p class="lead-card-registered">التسجيل: ${escapeHtml(formatCreatedAt(lead.createdAt))}</p>
+      </div>
+      <div class="lead-card-badges">
+        <span class="badge ${badgeClass(lead.contacted === "yes" ? "yes" : "no")}">${contactedLabel(lead.contacted === "yes" ? "yes" : "no")}</span>
+        <span class="badge ${badgeClass(status)}">${statusLabel(status)}</span>
+        <span class="badge ${badgeClass(lead.interested)}">${interestLabel(lead.interested)}</span>
+        <span class="badge ${badgeClass(prio)}">${priorityLabel(prio)}</span>
+      </div>
+    </div>
+    <dl class="lead-card-meta">
+      <div><dt>آخر تواصل</dt><dd>${escapeHtml(formatDate(lead.lastContactDate))}</dd></div>
+      <div><dt>المتابعة</dt><dd>${escapeHtml(formatDate(lead.followUpDate))}${today ? " · اليوم" : ""}${overdue ? " · متأخر" : ""}</dd></div>
+      <div><dt>المدينة</dt><dd>${escapeHtml(lead.city || "—")}</dd></div>
+      <div><dt>الخدمة</dt><dd>${escapeHtml(lead.service || "—")}</dd></div>
+      <div><dt>الحجز</dt><dd>${bookedLabel(lead.booked)}</dd></div>
+      <div><dt>المصدر</dt><dd>${escapeHtml(sourceLabel(lead.source))}</dd></div>
+      <div><dt>الموظف</dt><dd>${escapeHtml(lead.agentName || "—")}</dd></div>
+    </dl>
+    ${lead.details ? `<p class="lead-card-details">${escapeHtml(lead.details)}</p>` : ""}
+    ${actionButtons(lead.id)}
+  `;
+  return card;
+}
+
+function buildLeadRow(lead) {
+  const overdue = isOverdue(lead);
+  const today = isTodayFollowUp(lead);
+  const status = lead.callStatus || "answered";
+  const prio = lead.priority || "normal";
+  const contacted = lead.contacted === "yes" ? "yes" : "no";
+  const tr = document.createElement("tr");
+  if (overdue) tr.classList.add("row-overdue");
+  if (today) tr.classList.add("row-today");
+  tr.innerHTML = `
+    <td>
+      <strong>${escapeHtml(lead.customerName)}</strong>
+      ${lead.agentName ? `<div class="muted-note">${escapeHtml(lead.agentName)}</div>` : ""}
+      <div class="muted-note">التسجيل: ${escapeHtml(formatCreatedAt(lead.createdAt))}</div>
+    </td>
+    <td dir="ltr"><a class="phone-link" href="tel:${escapeHtml(lead.phone)}">${escapeHtml(lead.phone)}</a></td>
+    <td><span class="badge ${badgeClass(contacted)}">${contactedLabel(contacted)}</span></td>
+    <td>${escapeHtml(formatDate(lead.lastContactDate))}</td>
+    <td><span class="badge ${badgeClass(status)}">${statusLabel(status)}</span></td>
+    <td><span class="badge ${badgeClass(lead.interested)}">${interestLabel(lead.interested)}</span></td>
+    <td><span class="badge ${badgeClass(lead.booked)}">${bookedLabel(lead.booked)}</span></td>
+    <td><span class="badge ${badgeClass(prio)}">${priorityLabel(prio)}</span></td>
+    <td>
+      ${escapeHtml(formatDate(lead.followUpDate))}
+      ${today ? '<div class="tag-mini">اليوم</div>' : ""}
+      ${overdue ? '<div class="tag-mini danger">متأخر</div>' : ""}
+      ${lead.preferredTime ? `<div class="muted-note">${escapeHtml(lead.preferredTime)}</div>` : ""}
+    </td>
+    <td>${escapeHtml(lead.city || "—")}</td>
+    <td>
+      ${escapeHtml(lead.service || "—")}
+      ${lead.source ? `<div class="muted-note">${escapeHtml(sourceLabel(lead.source))}</div>` : ""}
+    </td>
+    <td>${actionButtons(lead.id)}</td>
+  `;
+  return tr;
+}
+
 function renderTable() {
   const rows = getFilteredLeads();
+  const groups = groupLeadsByCreatedDay(rows);
   leadsBody.innerHTML = "";
   leadsCards.innerHTML = "";
   emptyState.classList.toggle("visible", rows.length === 0);
-  resultCount.textContent = `المعروض: ${rows.length} من ${leads.length}`;
 
-  rows.forEach((lead) => {
-    const overdue = isOverdue(lead);
-    const today = isTodayFollowUp(lead);
-    const status = lead.callStatus || "answered";
-    const prio = lead.priority || "normal";
+  const todayCount = rows.filter(isCreatedToday).length;
+  const yesterdayCount = rows.filter(isCreatedYesterday).length;
+  resultCount.textContent =
+    `المعروض: ${rows.length} من ${leads.length}` +
+    (rows.length
+      ? ` — اليوم ${todayCount} · أمس ${yesterdayCount} · ${groups.length} يوم`
+      : "");
 
-    const tr = document.createElement("tr");
-    if (overdue) tr.classList.add("row-overdue");
-    if (today) tr.classList.add("row-today");
-    const contacted = lead.contacted === "yes" ? "yes" : "no";
-    tr.innerHTML = `
-      <td>
-        <strong>${escapeHtml(lead.customerName)}</strong>
-        ${lead.agentName ? `<div class="muted-note">${escapeHtml(lead.agentName)}</div>` : ""}
-      </td>
-      <td dir="ltr"><a class="phone-link" href="tel:${escapeHtml(lead.phone)}">${escapeHtml(lead.phone)}</a></td>
-      <td><span class="badge ${badgeClass(contacted)}">${contactedLabel(contacted)}</span></td>
-      <td>${escapeHtml(formatDate(lead.lastContactDate))}</td>
-      <td><span class="badge ${badgeClass(status)}">${statusLabel(status)}</span></td>
-      <td><span class="badge ${badgeClass(lead.interested)}">${interestLabel(lead.interested)}</span></td>
-      <td><span class="badge ${badgeClass(lead.booked)}">${bookedLabel(lead.booked)}</span></td>
-      <td><span class="badge ${badgeClass(prio)}">${priorityLabel(prio)}</span></td>
-      <td>
-        ${escapeHtml(formatDate(lead.followUpDate))}
-        ${today ? '<div class="tag-mini">اليوم</div>' : ""}
-        ${overdue ? '<div class="tag-mini danger">متأخر</div>' : ""}
-        ${lead.preferredTime ? `<div class="muted-note">${escapeHtml(lead.preferredTime)}</div>` : ""}
-      </td>
-      <td>${escapeHtml(lead.city || "—")}</td>
-      <td>
-        ${escapeHtml(lead.service || "—")}
-        ${lead.source ? `<div class="muted-note">${escapeHtml(sourceLabel(lead.source))}</div>` : ""}
-      </td>
-      <td>${actionButtons(lead.id)}</td>
+  updateFiltersBadge();
+
+  groups.forEach(([dayKey, dayLeads]) => {
+    const modifier = dayGroupModifier(dayKey);
+    const label = dayGroupLabel(dayKey);
+
+    const dayRow = document.createElement("tr");
+    dayRow.className = `day-row${modifier === "is-yesterday" ? " yesterday" : ""}`;
+    dayRow.innerHTML = `<th colspan="12">${escapeHtml(label)} — ${dayLeads.length} بطاقة</th>`;
+    leadsBody.appendChild(dayRow);
+    dayLeads.forEach((lead) => leadsBody.appendChild(buildLeadRow(lead)));
+
+    const group = document.createElement("section");
+    group.className = "day-group";
+    group.setAttribute("aria-label", `${label}، ${dayLeads.length} بطاقة`);
+    group.innerHTML = `
+      <button type="button" class="day-group-header ${modifier}" data-created-day="${escapeHtml(dayKey)}" title="عرض بطاقات هذا اليوم فقط">
+        <h3 class="day-group-title">${escapeHtml(label)}</h3>
+        <span class="day-group-count">${dayLeads.length}</span>
+      </button>
     `;
-    leadsBody.appendChild(tr);
+    dayLeads.forEach((lead) => group.appendChild(buildLeadCard(lead)));
+    leadsCards.appendChild(group);
 
-    const card = document.createElement("article");
-    card.className = `lead-card${overdue ? " row-overdue" : ""}${today ? " row-today" : ""}`;
-    card.innerHTML = `
-      <div class="lead-card-top">
-        <div>
-          <h3>${escapeHtml(lead.customerName)}</h3>
-          <a class="phone-link" href="tel:${escapeHtml(lead.phone)}" dir="ltr">${escapeHtml(lead.phone)}</a>
-        </div>
-        <div class="lead-card-badges">
-          <span class="badge ${badgeClass(lead.contacted === "yes" ? "yes" : "no")}">${contactedLabel(lead.contacted === "yes" ? "yes" : "no")}</span>
-          <span class="badge ${badgeClass(status)}">${statusLabel(status)}</span>
-          <span class="badge ${badgeClass(lead.interested)}">${interestLabel(lead.interested)}</span>
-          <span class="badge ${badgeClass(prio)}">${priorityLabel(prio)}</span>
-        </div>
-      </div>
-      <dl class="lead-card-meta">
-        <div><dt>آخر تواصل</dt><dd>${escapeHtml(formatDate(lead.lastContactDate))}</dd></div>
-        <div><dt>المتابعة</dt><dd>${escapeHtml(formatDate(lead.followUpDate))}${today ? " · اليوم" : ""}${overdue ? " · متأخر" : ""}</dd></div>
-        <div><dt>المدينة</dt><dd>${escapeHtml(lead.city || "—")}</dd></div>
-        <div><dt>الخدمة</dt><dd>${escapeHtml(lead.service || "—")}</dd></div>
-        <div><dt>الحجز</dt><dd>${bookedLabel(lead.booked)}</dd></div>
-        <div><dt>المصدر</dt><dd>${escapeHtml(sourceLabel(lead.source))}</dd></div>
-        <div><dt>الموظف</dt><dd>${escapeHtml(lead.agentName || "—")}</dd></div>
-      </dl>
-      ${lead.details ? `<p class="lead-card-details">${escapeHtml(lead.details)}</p>` : ""}
-      ${actionButtons(lead.id)}
-    `;
-    leadsCards.appendChild(card);
+    dayRow.querySelector("th").dataset.createdDay = dayKey;
+    dayRow.style.cursor = "pointer";
+    dayRow.title = "عرض بطاقات هذا اليوم فقط";
   });
+}
+
+function filterByCreatedDay(dayKey) {
+  if (!dayKey || dayKey === "unknown" || !createdOn) return;
+  createdOn.value = dayKey;
+  activeQuick = "all";
+  quickFilters.querySelectorAll(".chip").forEach((chip) => {
+    chip.classList.toggle("active", chip.dataset.quick === "all");
+  });
+  if (filtersPanel) {
+    filtersPanel.removeAttribute("hidden");
+    filtersToggle?.setAttribute("aria-expanded", "true");
+  }
+  renderTable();
+  showToast(`عرض تسجيلات ${dayGroupLabel(dayKey)}`);
 }
 
 function refresh() {
@@ -562,6 +749,7 @@ async function handleLeadAction(e) {
     checkDuplicatePhone();
     saveBtn.textContent = "تحديث العميل";
     cancelEditBtn.hidden = false;
+    setMobileView("form");
     customerName.focus();
     window.scrollTo({ top: 0, behavior: "smooth" });
     return;
@@ -583,8 +771,26 @@ async function handleLeadAction(e) {
   }
 }
 
-leadsBody.addEventListener("click", handleLeadAction);
-leadsCards.addEventListener("click", handleLeadAction);
+leadsBody.addEventListener("click", (e) => {
+  const dayCell = e.target.closest(".day-row th, .day-row");
+  if (dayCell) {
+    const dayKey = dayCell.dataset.createdDay || dayCell.querySelector("th")?.dataset.createdDay;
+    if (dayKey) {
+      filterByCreatedDay(dayKey);
+      return;
+    }
+  }
+  handleLeadAction(e);
+});
+
+leadsCards.addEventListener("click", (e) => {
+  const dayBtn = e.target.closest("[data-created-day]");
+  if (dayBtn) {
+    filterByCreatedDay(dayBtn.dataset.createdDay);
+    return;
+  }
+  handleLeadAction(e);
+});
 
 [
   searchInput,
@@ -595,10 +801,11 @@ leadsCards.addEventListener("click", handleLeadAction);
   priorityFilter,
   sourceFilter,
   agentFilter,
+  createdOn,
   dateFrom,
   dateTo,
   sortBy,
-].forEach((el) => {
+].filter(Boolean).forEach((el) => {
   el.addEventListener("input", renderTable);
   el.addEventListener("change", renderTable);
 });
@@ -610,6 +817,22 @@ form.querySelectorAll('input[name="contacted"]').forEach((el) => {
     }
   });
 });
+
+if (filtersToggle && filtersPanel) {
+  filtersToggle.addEventListener("click", () => {
+    const open = filtersPanel.hasAttribute("hidden");
+    filtersPanel.toggleAttribute("hidden", !open);
+    filtersToggle.setAttribute("aria-expanded", open ? "true" : "false");
+  });
+}
+
+if (mobileNav) {
+  mobileNav.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-view]");
+    if (!btn) return;
+    setMobileView(btn.dataset.view);
+  });
+}
 
 quickFilters.addEventListener("click", (e) => {
   const btn = e.target.closest("[data-quick]");
@@ -630,6 +853,7 @@ clearFiltersBtn.addEventListener("click", () => {
   priorityFilter.value = "all";
   sourceFilter.value = "all";
   agentFilter.value = "all";
+  if (createdOn) createdOn.value = "";
   dateFrom.value = "";
   dateTo.value = "";
   sortBy.value = "newest";
