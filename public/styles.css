@@ -730,6 +730,18 @@ select:focus {
   padding: 0.65rem 0.75rem;
 }
 
+.filter-field {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.filter-field span {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--muted);
+}
+
 .leads-list {
   min-width: 0;
 }

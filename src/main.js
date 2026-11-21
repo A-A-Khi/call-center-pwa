@@ -41,7 +41,8 @@ const sourceFilter = document.getElementById("sourceFilter");
 const agentFilter = document.getElementById("agentFilter");
 const dateFrom = document.getElementById("dateFrom");
 const dateTo = document.getElementById("dateTo");
-const createdOn = document.getElementById("createdOn");
+const createdFrom = document.getElementById("createdFrom");
+const createdTo = document.getElementById("createdTo");
 const sortBy = document.getElementById("sortBy");
 const exportScope = document.getElementById("exportScope");
 const clearFiltersBtn = document.getElementById("clearFiltersBtn");
@@ -171,7 +172,8 @@ function countActiveFilters() {
   if (priorityFilter.value !== "all") count += 1;
   if (sourceFilter.value !== "all") count += 1;
   if (agentFilter.value !== "all") count += 1;
-  if (createdOn?.value) count += 1;
+  if (createdFrom?.value) count += 1;
+  if (createdTo?.value) count += 1;
   if (dateFrom.value) count += 1;
   if (dateTo.value) count += 1;
   if (activeQuick !== "all") count += 1;
@@ -359,7 +361,8 @@ function getFilteredLeads() {
   const agent = agentFilter.value;
   const from = dateFrom.value;
   const to = dateTo.value;
-  const createdDay = createdOn?.value || "";
+  const createdStart = createdFrom?.value || "";
+  const createdEnd = createdTo?.value || "";
 
   let rows = leads.filter((lead) => {
     const hay = [
@@ -387,7 +390,11 @@ function getFilteredLeads() {
     const matchesAgent = agent === "all" || lead.agentName === agent;
     const matchesFrom = !from || (lead.followUpDate && lead.followUpDate >= from);
     const matchesTo = !to || (lead.followUpDate && lead.followUpDate <= to);
-    const matchesCreatedOn = !createdDay || createdDayKey(lead) === createdDay;
+    const dayKey = createdDayKey(lead);
+    const matchesCreatedFrom =
+      !createdStart || (dayKey !== "unknown" && dayKey >= createdStart);
+    const matchesCreatedTo =
+      !createdEnd || (dayKey !== "unknown" && dayKey <= createdEnd);
     return (
       matchesQuery &&
       matchesInterest &&
@@ -399,7 +406,8 @@ function getFilteredLeads() {
       matchesAgent &&
       matchesFrom &&
       matchesTo &&
-      matchesCreatedOn &&
+      matchesCreatedFrom &&
+      matchesCreatedTo &&
       matchesQuick(lead)
     );
   });
@@ -563,11 +571,21 @@ function renderTable() {
 
   const todayCount = rows.filter(isCreatedToday).length;
   const yesterdayCount = rows.filter(isCreatedYesterday).length;
+  const createdStart = createdFrom?.value || "";
+  const createdEnd = createdTo?.value || "";
+  let createdRangeText = "";
+  if (createdStart || createdEnd) {
+    const fromLabel = createdStart ? formatDate(createdStart) : "البداية";
+    const toLabel = createdEnd ? formatDate(createdEnd) : "الآن";
+    createdRangeText = ` — تسجيل ${fromLabel} → ${toLabel}: ${rows.length} حالة`;
+  }
+
   resultCount.textContent =
     `المعروض: ${rows.length} من ${leads.length}` +
-    (rows.length
-      ? ` — اليوم ${todayCount} · أمس ${yesterdayCount} · ${groups.length} يوم`
-      : "");
+    (createdRangeText ||
+      (rows.length
+        ? ` — اليوم ${todayCount} · أمس ${yesterdayCount} · ${groups.length} يوم`
+        : ""));
 
   updateFiltersBadge();
 
@@ -600,8 +618,9 @@ function renderTable() {
 }
 
 function filterByCreatedDay(dayKey) {
-  if (!dayKey || dayKey === "unknown" || !createdOn) return;
-  createdOn.value = dayKey;
+  if (!dayKey || dayKey === "unknown" || !createdFrom || !createdTo) return;
+  createdFrom.value = dayKey;
+  createdTo.value = dayKey;
   activeQuick = "all";
   quickFilters.querySelectorAll(".chip").forEach((chip) => {
     chip.classList.toggle("active", chip.dataset.quick === "all");
@@ -801,7 +820,8 @@ leadsCards.addEventListener("click", (e) => {
   priorityFilter,
   sourceFilter,
   agentFilter,
-  createdOn,
+  createdFrom,
+  createdTo,
   dateFrom,
   dateTo,
   sortBy,
@@ -853,7 +873,8 @@ clearFiltersBtn.addEventListener("click", () => {
   priorityFilter.value = "all";
   sourceFilter.value = "all";
   agentFilter.value = "all";
-  if (createdOn) createdOn.value = "";
+  if (createdFrom) createdFrom.value = "";
+  if (createdTo) createdTo.value = "";
   dateFrom.value = "";
   dateTo.value = "";
   sortBy.value = "newest";

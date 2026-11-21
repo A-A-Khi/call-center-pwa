@@ -287,13 +287,26 @@
             <option value="cold">اتصال بارد</option>
             <option value="other">أخرى</option>
           </select>
-          <select id="agentFilter">
+          <select id="agentFilter" aria-label="الموظف">
             <option value="all">كل الموظفين</option>
           </select>
-          <input id="createdOn" type="date" title="تاريخ التسجيل" aria-label="تاريخ التسجيل" />
-          <input id="dateFrom" type="date" title="من تاريخ متابعة" aria-label="من تاريخ متابعة" />
-          <input id="dateTo" type="date" title="إلى تاريخ متابعة" aria-label="إلى تاريخ متابعة" />
-          <select id="sortBy">
+          <label class="filter-field">
+            <span>تسجيل من</span>
+            <input id="createdFrom" type="date" />
+          </label>
+          <label class="filter-field">
+            <span>تسجيل إلى</span>
+            <input id="createdTo" type="date" />
+          </label>
+          <label class="filter-field">
+            <span>متابعة من</span>
+            <input id="dateFrom" type="date" />
+          </label>
+          <label class="filter-field">
+            <span>متابعة إلى</span>
+            <input id="dateTo" type="date" />
+          </label>
+          <select id="sortBy" aria-label="الترتيب">
             <option value="newest">الأحدث تسجيلًا</option>
             <option value="followup_asc">المتابعة الأقرب</option>
             <option value="followup_desc">المتابعة الأبعد</option>
