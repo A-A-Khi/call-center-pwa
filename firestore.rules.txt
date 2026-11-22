@@ -5,5 +5,10 @@ service cloud.firestore {
     match /leads/{leadId} {
       allow read, write: if true;
     }
+
+    // مواعيد الزيارة — تظهر لاحقاً في برنامج الدكتور
+    match /appointments/{appointmentId} {
+      allow read, write: if true;
+    }
   }
 }

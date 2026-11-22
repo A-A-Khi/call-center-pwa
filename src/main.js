@@ -11,6 +11,7 @@ import { db } from "./firebase.js";
 
 const AGENT_KEY = "callcenter_last_agent";
 const COLLECTION = "leads";
+const APPOINTMENTS = "appointments";
 const PRIORITY_WEIGHT = { urgent: 3, high: 2, normal: 1 };
 
 const form = document.getElementById("leadForm");
@@ -21,6 +22,9 @@ const phoneHint = document.getElementById("phoneHint");
 const followUpDate = document.getElementById("followUpDate");
 const lastContactDate = document.getElementById("lastContactDate");
 const preferredTime = document.getElementById("preferredTime");
+const visitBookingPanel = document.getElementById("visitBookingPanel");
+const visitDate = document.getElementById("visitDate");
+const visitTime = document.getElementById("visitTime");
 const service = document.getElementById("service");
 const city = document.getElementById("city");
 const source = document.getElementById("source");
@@ -256,6 +260,31 @@ function formatDate(value) {
   return `${d}/${m}/${y}`;
 }
 
+function formatTime(value) {
+  if (!value) return "";
+  const [h, m] = String(value).split(":");
+  if (h == null || m == null) return value;
+  return `${h}:${m}`;
+}
+
+function formatVisitSlot(lead) {
+  if (lead.booked !== "yes" || !lead.visitDate) return "";
+  const datePart = formatDate(lead.visitDate);
+  const timePart = formatTime(lead.visitTime);
+  return timePart ? `${datePart} · ${timePart}` : datePart;
+}
+
+function isVisitToday(lead) {
+  return lead.booked === "yes" && lead.visitDate === todayISO();
+}
+
+function syncVisitPanel() {
+  const booked = getSelected("booked") === "yes";
+  if (visitBookingPanel) visitBookingPanel.hidden = !booked;
+  if (visitDate) visitDate.required = booked;
+  if (visitTime) visitTime.required = booked;
+}
+
 function normalizePhone(value) {
   return String(value || "").replace(/\D/g, "");
 }
@@ -293,10 +322,13 @@ function resetForm(keepAgent = true) {
   callStatus.value = "answered";
   priority.value = "normal";
   lastContactDate.value = "";
+  if (visitDate) visitDate.value = "";
+  if (visitTime) visitTime.value = "";
   agentName.value = agent;
   phoneHint.hidden = true;
   saveBtn.textContent = "حفظ العميل";
   cancelEditBtn.hidden = true;
+  syncVisitPanel();
 }
 
 function uniqueValues(getter) {
@@ -491,10 +523,11 @@ function escapeHtml(str) {
 function buildLeadCard(lead) {
   const overdue = isOverdue(lead);
   const today = isTodayFollowUp(lead);
+  const visitToday = isVisitToday(lead);
   const status = lead.callStatus || "answered";
   const prio = lead.priority || "normal";
   const card = document.createElement("article");
-  card.className = `lead-card${overdue ? " row-overdue" : ""}${today ? " row-today" : ""}`;
+  card.className = `lead-card${overdue ? " row-overdue" : ""}${today || visitToday ? " row-today" : ""}`;
   card.innerHTML = `
     <div class="lead-card-top">
       <div>
@@ -512,6 +545,7 @@ function buildLeadCard(lead) {
     <dl class="lead-card-meta">
       <div><dt>آخر تواصل</dt><dd>${escapeHtml(formatDate(lead.lastContactDate))}</dd></div>
       <div><dt>المتابعة</dt><dd>${escapeHtml(formatDate(lead.followUpDate))}${today ? " · اليوم" : ""}${overdue ? " · متأخر" : ""}</dd></div>
+      <div><dt>موعد الزيارة</dt><dd>${escapeHtml(formatVisitSlot(lead) || "—")}${isVisitToday(lead) ? " · اليوم" : ""}</dd></div>
       <div><dt>المدينة</dt><dd>${escapeHtml(lead.city || "—")}</dd></div>
       <div><dt>الخدمة</dt><dd>${escapeHtml(lead.service || "—")}</dd></div>
       <div><dt>الحجز</dt><dd>${bookedLabel(lead.booked)}</dd></div>
@@ -527,12 +561,14 @@ function buildLeadCard(lead) {
 function buildLeadRow(lead) {
   const overdue = isOverdue(lead);
   const today = isTodayFollowUp(lead);
+  const visitToday = isVisitToday(lead);
+  const visitSlot = formatVisitSlot(lead);
   const status = lead.callStatus || "answered";
   const prio = lead.priority || "normal";
   const contacted = lead.contacted === "yes" ? "yes" : "no";
   const tr = document.createElement("tr");
   if (overdue) tr.classList.add("row-overdue");
-  if (today) tr.classList.add("row-today");
+  if (today || visitToday) tr.classList.add("row-today");
   tr.innerHTML = `
     <td>
       <strong>${escapeHtml(lead.customerName)}</strong>
@@ -544,13 +580,17 @@ function buildLeadRow(lead) {
     <td>${escapeHtml(formatDate(lead.lastContactDate))}</td>
     <td><span class="badge ${badgeClass(status)}">${statusLabel(status)}</span></td>
     <td><span class="badge ${badgeClass(lead.interested)}">${interestLabel(lead.interested)}</span></td>
-    <td><span class="badge ${badgeClass(lead.booked)}">${bookedLabel(lead.booked)}</span></td>
+    <td>
+      <span class="badge ${badgeClass(lead.booked)}">${bookedLabel(lead.booked)}</span>
+      ${visitSlot ? `<div class="visit-slot">${escapeHtml(visitSlot)}</div>` : ""}
+    </td>
     <td><span class="badge ${badgeClass(prio)}">${priorityLabel(prio)}</span></td>
     <td>
       ${escapeHtml(formatDate(lead.followUpDate))}
-      ${today ? '<div class="tag-mini">اليوم</div>' : ""}
+      ${today ? '<div class="tag-mini">متابعة اليوم</div>' : ""}
       ${overdue ? '<div class="tag-mini danger">متأخر</div>' : ""}
       ${lead.preferredTime ? `<div class="muted-note">${escapeHtml(lead.preferredTime)}</div>` : ""}
+      ${visitSlot ? `<div class="visit-slot">${escapeHtml(visitSlot)}${visitToday ? " · اليوم" : ""}</div>` : ""}
     </td>
     <td>${escapeHtml(lead.city || "—")}</td>
     <td>
@@ -665,8 +705,39 @@ async function upsertLead(payload, id) {
   return ref.id;
 }
 
+async function syncAppointment(leadDocId, payload) {
+  const apptRef = doc(db, APPOINTMENTS, leadDocId);
+  const booked = payload.booked === "yes";
+
+  if (!booked || !payload.visitDate || !payload.visitTime) {
+    await deleteDoc(apptRef);
+    return;
+  }
+
+  await setDoc(
+    apptRef,
+    {
+      leadId: leadDocId,
+      patientName: payload.customerName,
+      phone: payload.phone,
+      city: payload.city || "",
+      service: payload.service || "",
+      visitDate: payload.visitDate,
+      visitTime: payload.visitTime,
+      status: "confirmed",
+      agentName: payload.agentName || "",
+      details: payload.details || "",
+      source: "call_center",
+      createdAt: payload.createdAt || payload.updatedAt,
+      updatedAt: payload.updatedAt,
+    },
+    { merge: true }
+  );
+}
+
 async function removeLead(id) {
   await deleteDoc(doc(db, COLLECTION, id));
+  await deleteDoc(doc(db, APPOINTMENTS, id));
 }
 
 form.addEventListener("submit", async (e) => {
@@ -680,33 +751,50 @@ form.addEventListener("submit", async (e) => {
     return;
   }
 
+  const bookedValue = getSelected("booked") || "no";
+  if (bookedValue === "yes") {
+    syncVisitPanel();
+    if (!visitDate.value || !visitTime.value) {
+      showToast("حدد تاريخ وساعة الزيارة قبل الحفظ");
+      if (!visitDate.value) visitDate.focus();
+      else visitTime.focus();
+      return;
+    }
+  }
+
   const contactedValue = getSelected("contacted") || "no";
   let lastContactValue = lastContactDate.value;
   if (contactedValue === "yes" && !lastContactValue) {
     lastContactValue = todayISO();
   }
 
+  const isNew = !leadId.value;
+  const existing = isNew ? null : leads.find((l) => l.id === leadId.value);
+  const nowIso = new Date().toISOString();
+
   const payload = {
     customerName: name,
     phone: phoneValue,
     interested: getSelected("interested"),
-    booked: getSelected("booked"),
+    booked: bookedValue,
     contacted: contactedValue,
     lastContactDate: lastContactValue,
     callStatus: callStatus.value || "answered",
     priority: priority.value || "normal",
     followUpDate: followUpDate.value,
     preferredTime: preferredTime.value.trim(),
+    visitDate: bookedValue === "yes" ? visitDate.value : "",
+    visitTime: bookedValue === "yes" ? visitTime.value : "",
     service: service.value.trim(),
     city: city.value.trim(),
     source: source.value,
     agentName: agentName.value.trim(),
     details: details.value.trim(),
-    updatedAt: new Date().toISOString(),
+    updatedAt: nowIso,
   };
 
-  if (!leadId.value) {
-    payload.createdAt = new Date().toISOString();
+  if (isNew) {
+    payload.createdAt = nowIso;
   }
 
   if (agentName.value.trim()) {
@@ -716,8 +804,29 @@ form.addEventListener("submit", async (e) => {
   saving = true;
   saveBtn.disabled = true;
   try {
-    await upsertLead(payload, leadId.value || null);
-    showToast(leadId.value ? "تم تحديث بيانات العميل" : "تم حفظ العميل للفريق كله");
+    const savedId = await upsertLead(payload, leadId.value || null);
+    try {
+      await syncAppointment(savedId, {
+        ...payload,
+        createdAt: payload.createdAt || existing?.createdAt || nowIso,
+      });
+    } catch (apptErr) {
+      console.error(apptErr);
+      showToast(
+        "تم حفظ العميل، لكن فشل تسجيل الموعد — حدّث قواعد Firestore لمجموعة appointments"
+      );
+      setupPanel.hidden = false;
+      resetForm(true);
+      customerName.focus();
+      return;
+    }
+    const visitMsg =
+      bookedValue === "yes"
+        ? ` — زيارة ${formatDate(payload.visitDate)} الساعة ${formatTime(payload.visitTime)}`
+        : "";
+    showToast(
+      (isNew ? "تم حفظ العميل للفريق كله" : "تم تحديث بيانات العميل") + visitMsg
+    );
     resetForm(true);
     customerName.focus();
   } catch (err) {
@@ -760,11 +869,14 @@ async function handleLeadAction(e) {
     followUpDate.value = lead.followUpDate || "";
     lastContactDate.value = lead.lastContactDate || "";
     preferredTime.value = lead.preferredTime || "";
+    visitDate.value = lead.visitDate || "";
+    visitTime.value = lead.visitTime || "";
     service.value = lead.service || "";
     city.value = lead.city || "";
     source.value = lead.source || "";
     agentName.value = lead.agentName || agentName.value;
     details.value = lead.details || "";
+    syncVisitPanel();
     checkDuplicatePhone();
     saveBtn.textContent = "تحديث العميل";
     cancelEditBtn.hidden = false;
@@ -838,6 +950,17 @@ form.querySelectorAll('input[name="contacted"]').forEach((el) => {
   });
 });
 
+form.querySelectorAll('input[name="booked"]').forEach((el) => {
+  el.addEventListener("change", () => {
+    syncVisitPanel();
+    if (getSelected("booked") === "yes" && !visitDate.value) {
+      visitDate.value = todayISO();
+    }
+  });
+});
+
+syncVisitPanel();
+
 if (filtersToggle && filtersPanel) {
   filtersToggle.addEventListener("click", () => {
     const open = filtersPanel.hasAttribute("hidden");
@@ -897,6 +1020,8 @@ function toSheetRows(list) {
     "حالة المكالمة": statusLabel(lead.callStatus || "answered"),
     "مهتم بالخدمة": interestLabel(lead.interested),
     "تم الحجز": bookedLabel(lead.booked),
+    "تاريخ الزيارة": lead.booked === "yes" ? lead.visitDate || "" : "",
+    "ساعة الزيارة": lead.booked === "yes" ? lead.visitTime || "" : "",
     الأولوية: priorityLabel(lead.priority || "normal"),
     "يوم المتابعة": lead.followUpDate || "",
     "وقت مناسب": lead.preferredTime || "",

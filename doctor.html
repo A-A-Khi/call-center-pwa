@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a3a4a" />
+  <meta name="description" content="جدول مواعيد الطبيب — عرض وتعديل وإلغاء زيارات المرضى" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="مواعيد الطبيب" />
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Lexend:wght@500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./doctor.css" />
+  <title>مواعيد الطبيب</title>
+</head>
+<body>
+  <div class="ambient" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <div>
+        <p class="brand-kicker">Clinic Desk</p>
+        <h1>مواعيد الطبيب</h1>
+      </div>
+    </div>
+    <div class="top-actions">
+      <button type="button" class="btn btn-ghost" id="notifyBtn" title="تفعيل الإشعارات">الإشعارات</button>
+      <a class="btn btn-ghost" href="./index.html">الكول سنتر</a>
+    </div>
+  </header>
+
+  <div class="sync-bar" id="syncBar" data-state="loading">
+    <span class="sync-dot" aria-hidden="true"></span>
+    <span id="syncText">جاري تحميل المواعيد...</span>
+  </div>
+
+  <section class="today-banner" id="todayBanner" hidden>
+    <div>
+      <strong id="todayBannerTitle">مواعيد اليوم</strong>
+      <p id="todayBannerText"></p>
+    </div>
+    <button type="button" class="btn btn-primary btn-sm" id="jumpTodayBtn">عرض اليوم</button>
+  </section>
+
+  <main class="desk">
+    <section class="panel calendar-panel">
+      <div class="panel-toolbar">
+        <div class="nav-month">
+          <button type="button" class="icon-btn" id="prevMonthBtn" aria-label="الشهر السابق">‹</button>
+          <h2 id="monthLabel">—</h2>
+          <button type="button" class="icon-btn" id="nextMonthBtn" aria-label="الشهر التالي">›</button>
+        </div>
+        <div class="view-tabs" role="tablist" aria-label="طريقة العرض">
+          <button type="button" class="tab active" data-view="month" role="tab" aria-selected="true">شهر</button>
+          <button type="button" class="tab" data-view="week" role="tab" aria-selected="false">أسبوع</button>
+          <button type="button" class="tab" data-view="day" role="tab" aria-selected="false">يوم</button>
+        </div>
+      </div>
+
+      <div class="weekday-row" id="weekdayRow" aria-hidden="true">
+        <span>أحد</span><span>إثنين</span><span>ثلاثاء</span><span>أربعاء</span><span>خميس</span><span>جمعة</span><span>سبت</span>
+      </div>
+      <div class="calendar-grid" id="calendarGrid" role="grid" aria-label="التقويم"></div>
+    </section>
+
+    <section class="panel agenda-panel">
+      <div class="panel-toolbar">
+        <div>
+          <h2 id="agendaTitle">جدول اليوم</h2>
+          <p class="agenda-sub" id="agendaSub">—</p>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="hideCancelled" checked />
+          <span>إخفاء الملغاة</span>
+        </label>
+      </div>
+
+      <div class="stats-row" id="agendaStats">
+        <article class="mini-stat">
+          <span>مؤكد</span>
+          <strong id="statConfirmed">0</strong>
+        </article>
+        <article class="mini-stat warm">
+          <span>اليوم</span>
+          <strong id="statToday">0</strong>
+        </article>
+        <article class="mini-stat muted">
+          <span>ملغى</span>
+          <strong id="statCancelled">0</strong>
+        </article>
+      </div>
+
+      <div class="agenda-list" id="agendaList" aria-live="polite"></div>
+      <p class="empty-agenda" id="emptyAgenda">لا توجد مواعيد في هذا اليوم.</p>
+    </section>
+  </main>
+
+  <dialog class="sheet" id="apptDialog" aria-labelledby="dialogTitle">
+    <form method="dialog" class="sheet-form" id="apptForm">
+      <header class="sheet-head">
+        <div>
+          <p class="sheet-kicker" id="dialogStatus">موعد مؤكد</p>
+          <h3 id="dialogTitle">تفاصيل الموعد</h3>
+        </div>
+        <button type="submit" class="icon-btn" value="cancel" aria-label="إغلاق">✕</button>
+      </header>
+
+      <div class="sheet-body">
+        <input type="hidden" id="editApptId" />
+        <div class="patient-block">
+          <strong id="editPatientName">—</strong>
+          <a id="editPhoneLink" class="phone-link" href="#" dir="ltr">—</a>
+          <p id="editService" class="muted">—</p>
+        </div>
+
+        <div class="grid-2">
+          <label class="field">
+            <span>تاريخ الزيارة</span>
+            <input id="editVisitDate" type="date" required />
+          </label>
+          <label class="field">
+            <span>الساعة</span>
+            <input id="editVisitTime" type="time" required />
+          </label>
+        </div>
+
+        <label class="field">
+          <span>ملاحظات</span>
+          <textarea id="editDetails" rows="3" placeholder="ملاحظات الطبيب أو تفاصيل الزيارة"></textarea>
+        </label>
+      </div>
+
+      <footer class="sheet-actions">
+        <button type="button" class="btn btn-danger" id="cancelApptBtn">إلغاء الموعد</button>
+        <button type="button" class="btn btn-primary" id="saveApptBtn">حفظ التعديل</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="./src/doctor.js"></script>
+</body>
+</html>

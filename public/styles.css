@@ -313,9 +313,50 @@ body {
   color: var(--ink);
 }
 
+.visit-booking-panel {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.85rem 0.9rem;
+  border-radius: 14px;
+  border: 1px solid rgba(11, 122, 114, 0.28);
+  background: linear-gradient(135deg, rgba(11, 122, 114, 0.08), rgba(255, 255, 255, 0.7));
+}
+
+.visit-booking-panel[hidden] {
+  display: none;
+}
+
+.visit-booking-head strong {
+  display: block;
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: var(--teal-deep);
+}
+
+.visit-booking-head p {
+  margin: 0.2rem 0 0;
+  font-size: 0.78rem;
+  color: var(--muted, #5b6b6a);
+  line-height: 1.45;
+}
+
+.visit-slot {
+  margin-top: 0.25rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--teal-deep);
+  line-height: 1.35;
+}
+
+.visit-slot.muted {
+  color: var(--muted, #5b6b6a);
+  font-weight: 600;
+}
+
 input[type="text"],
 input[type="tel"],
 input[type="date"],
+input[type="time"],
 input[type="search"],
 textarea,
 select {
@@ -419,6 +460,11 @@ select:focus {
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease;
   touch-action: manipulation;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
 }
 
 .btn:hover {

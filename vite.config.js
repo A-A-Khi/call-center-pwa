@@ -1,10 +1,17 @@
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
+import { resolve } from "node:path";
 
 export default defineConfig({
   base: "/call-center-pwa/",
   build: {
     outDir: "dist",
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, "index.html"),
+        doctor: resolve(__dirname, "doctor.html"),
+      },
+    },
   },
   plugins: [
     VitePWA({
@@ -45,6 +52,7 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: "index.html",
+        navigateFallbackDenylist: [/doctor\.html/],
         globPatterns: ["**/*.{js,css,html,svg,png,webmanifest}"],
       },
     }),

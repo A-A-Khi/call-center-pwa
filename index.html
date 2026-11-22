@@ -33,6 +33,7 @@
       </div>
     </div>
     <div class="top-actions">
+      <a class="btn btn-ghost" href="./doctor.html">مواعيد الطبيب</a>
       <button type="button" class="btn btn-ghost" id="installBtn" hidden>تثبيت التطبيق</button>
       <button type="button" class="btn btn-secondary" id="exportCsvBtn">تصدير CSV</button>
       <button type="button" class="btn btn-primary" id="exportXlsxBtn">تصدير Excel</button>
@@ -110,6 +111,23 @@
             </fieldset>
           </div>
 
+          <div id="visitBookingPanel" class="visit-booking-panel" hidden>
+            <div class="visit-booking-head">
+              <strong>موعد الزيارة</strong>
+              <p>تاريخ وساعة الزيارة عشان تظهر للدكتور في الكالندر</p>
+            </div>
+            <div class="grid-2">
+              <label class="field">
+                <span>تاريخ الزيارة</span>
+                <input id="visitDate" name="visitDate" type="date" />
+              </label>
+              <label class="field">
+                <span>ساعة الزيارة</span>
+                <input id="visitTime" name="visitTime" type="time" />
+              </label>
+            </div>
+          </div>
+
           <div class="grid-2">
             <fieldset class="choice-group">
               <legend>تم التواصل؟</legend>
@@ -150,7 +168,7 @@
           <legend class="form-section-title">المتابعة والعرض</legend>
           <div class="grid-2">
             <label class="field">
-              <span>يوم المتابعة / الموعد</span>
+              <span>يوم المتابعة (اتصال)</span>
               <input id="followUpDate" name="followUpDate" type="date" />
             </label>
             <label class="field">
@@ -337,7 +355,7 @@
                 <th>مهتم؟</th>
                 <th>حجز؟</th>
                 <th>أولوية</th>
-                <th>المتابعة</th>
+                <th>متابعة / زيارة</th>
                 <th>المدينة</th>
                 <th>الخدمة</th>
                 <th>إجراءات</th>
