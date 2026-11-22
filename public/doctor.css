@@ -393,7 +393,7 @@ body {
 
 .stats-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 0.5rem;
   margin-bottom: 0.85rem;
 }
@@ -408,6 +408,16 @@ body {
 .mini-stat.warm {
   background: rgba(232, 194, 122, 0.2);
   border-color: rgba(232, 194, 122, 0.35);
+}
+
+.mini-stat.warn {
+  background: rgba(196, 120, 40, 0.12);
+  border-color: rgba(196, 120, 40, 0.28);
+}
+
+.mini-stat.done {
+  background: rgba(31, 122, 108, 0.14);
+  border-color: rgba(31, 122, 108, 0.28);
 }
 
 .mini-stat.muted {
@@ -499,9 +509,109 @@ body {
   white-space: nowrap;
 }
 
+.appt-status.awaiting {
+  background: rgba(196, 120, 40, 0.14);
+  color: #9a5b12;
+}
+
+.appt-status.completed {
+  background: rgba(31, 122, 108, 0.16);
+  color: var(--sea-deep);
+}
+
 .appt-status.cancelled {
   background: rgba(196, 92, 92, 0.12);
   color: var(--rose);
+}
+
+.visit-complete-panel {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.85rem;
+  border-radius: 14px;
+  border: 1px solid rgba(31, 122, 108, 0.25);
+  background: linear-gradient(145deg, rgba(31, 122, 108, 0.08), rgba(255, 255, 255, 0.9));
+}
+
+.visit-complete-panel[hidden],
+.completed-summary[hidden] {
+  display: none;
+}
+
+.visit-complete-head strong {
+  display: block;
+  font-size: 0.92rem;
+  color: var(--sea-deep);
+}
+
+.visit-complete-head p {
+  margin: 0.2rem 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.completed-summary {
+  padding: 0.85rem;
+  border-radius: 14px;
+  background: rgba(31, 122, 108, 0.1);
+  border: 1px solid rgba(31, 122, 108, 0.2);
+}
+
+.completed-summary strong {
+  display: block;
+  color: var(--sea-deep);
+}
+
+.completed-summary p {
+  margin: 0.3rem 0 0;
+  font-size: 0.86rem;
+  color: var(--ink-soft);
+}
+
+.sync-line {
+  margin-top: 0.55rem !important;
+  font-weight: 700;
+  font-size: 0.82rem !important;
+}
+
+.sync-line.is-synced {
+  color: var(--sea-deep);
+}
+
+.sync-line.is-failed,
+.sync-line.is-pending {
+  color: #9a5b12;
+}
+
+input[type="number"] {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.75rem 0.8rem;
+  font: inherit;
+  font-size: 16px;
+  background: var(--surface-solid);
+  color: var(--ink);
+  outline: none;
+  min-height: var(--touch);
+}
+
+input[type="number"]:focus {
+  border-color: rgba(31, 122, 108, 0.5);
+  box-shadow: 0 0 0 3px rgba(31, 122, 108, 0.12);
+}
+
+.sheet-actions {
+  flex-wrap: wrap;
+}
+
+.dot.awaiting {
+  background: #c47828;
+}
+
+.dot.completed {
+  background: var(--sea-deep);
 }
 
 .empty-agenda {
@@ -702,6 +812,10 @@ textarea:focus {
 
   .day-cell {
     min-height: 68px;
+  }
+
+  .stats-row {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 

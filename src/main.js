@@ -3,6 +3,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   onSnapshot,
   setDoc,
 } from "firebase/firestore";
@@ -714,6 +715,19 @@ async function syncAppointment(leadDocId, payload) {
     return;
   }
 
+  // لا نرجّع حالة الموعد لو الدكتور أكّده أو خلّص الكشف
+  let status = "awaiting_doctor";
+  try {
+    const existing = await getDoc(apptRef);
+    if (existing.exists()) {
+      const prev = existing.data()?.status;
+      if (prev === "confirmed" || prev === "completed") status = prev;
+      else if (prev === "cancelled") status = "awaiting_doctor";
+    }
+  } catch (err) {
+    console.warn("appointment status read failed", err);
+  }
+
   await setDoc(
     apptRef,
     {
@@ -724,7 +738,7 @@ async function syncAppointment(leadDocId, payload) {
       service: payload.service || "",
       visitDate: payload.visitDate,
       visitTime: payload.visitTime,
-      status: "confirmed",
+      status,
       agentName: payload.agentName || "",
       details: payload.details || "",
       source: "call_center",

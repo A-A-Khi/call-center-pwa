@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#1a3a4a" />
-  <meta name="description" content="جدول مواعيد الطبيب — عرض وتعديل وإلغاء زيارات المرضى" />
+  <meta name="description" content="جدول مواعيد الطبيب — تأكيد المواعيد وتسجيل الزيارة والفلوس" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="مواعيد الطبيب" />
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
@@ -79,6 +79,10 @@
       </div>
 
       <div class="stats-row" id="agendaStats">
+        <article class="mini-stat warn">
+          <span>بانتظار تأكيدك</span>
+          <strong id="statAwaiting">0</strong>
+        </article>
         <article class="mini-stat">
           <span>مؤكد</span>
           <strong id="statConfirmed">0</strong>
@@ -87,9 +91,9 @@
           <span>اليوم</span>
           <strong id="statToday">0</strong>
         </article>
-        <article class="mini-stat muted">
-          <span>ملغى</span>
-          <strong id="statCancelled">0</strong>
+        <article class="mini-stat done">
+          <span>تم الكشف</span>
+          <strong id="statCompleted">0</strong>
         </article>
       </div>
 
@@ -102,7 +106,7 @@
     <form method="dialog" class="sheet-form" id="apptForm">
       <header class="sheet-head">
         <div>
-          <p class="sheet-kicker" id="dialogStatus">موعد مؤكد</p>
+          <p class="sheet-kicker" id="dialogStatus">موعد</p>
           <h3 id="dialogTitle">تفاصيل الموعد</h3>
         </div>
         <button type="submit" class="icon-btn" value="cancel" aria-label="إغلاق">✕</button>
@@ -128,14 +132,55 @@
         </div>
 
         <label class="field">
-          <span>ملاحظات</span>
-          <textarea id="editDetails" rows="3" placeholder="ملاحظات الطبيب أو تفاصيل الزيارة"></textarea>
+          <span>ملاحظات الموعد</span>
+          <textarea id="editDetails" rows="2" placeholder="ملاحظات من الكول سنتر أو تعديلات"></textarea>
         </label>
+
+        <section class="visit-complete-panel" id="visitCompletePanel" hidden>
+          <div class="visit-complete-head">
+            <strong>تسجيل الزيارة بعد الكشف</strong>
+            <p>الخدمة المقدمة والمبلغ المدفوع — بعد الحفظ جاهزة للمزامنة مع الموقع الرئيسي</p>
+          </div>
+          <label class="field">
+            <span>الخدمة المقدمة</span>
+            <input id="visitServiceName" type="text" list="servicePriceList" placeholder="مثال: كشف منزلي" />
+            <datalist id="servicePriceList">
+              <option value="كشف منزلي"></option>
+              <option value="استشارة"></option>
+              <option value="حشو"></option>
+              <option value="خلع"></option>
+              <option value="تنظيف جير"></option>
+            </datalist>
+          </label>
+          <div class="grid-2">
+            <label class="field">
+              <span>تكلفة الخدمة (جنيه)</span>
+              <input id="visitCostEgp" type="number" min="0" step="1" inputmode="numeric" placeholder="0" />
+            </label>
+            <label class="field">
+              <span>المبلغ المدفوع (جنيه)</span>
+              <input id="visitPaidEgp" type="number" min="0" step="1" inputmode="numeric" placeholder="0" />
+            </label>
+          </div>
+          <label class="field">
+            <span>تفاصيل الكشف / التشخيص</span>
+            <textarea id="visitClinicalNotes" rows="3" placeholder="الشكوى، التشخيص، ملاحظات الطبيب..."></textarea>
+          </label>
+        </section>
+
+        <div class="completed-summary" id="completedSummary" hidden>
+          <strong>الزيارة مسجّلة</strong>
+          <p id="completedSummaryText">—</p>
+          <p class="sync-line" id="syncStatusLine">—</p>
+        </div>
       </div>
 
-      <footer class="sheet-actions">
+      <footer class="sheet-actions" id="sheetActions">
         <button type="button" class="btn btn-danger" id="cancelApptBtn">إلغاء الموعد</button>
-        <button type="button" class="btn btn-primary" id="saveApptBtn">حفظ التعديل</button>
+        <button type="button" class="btn btn-ghost" id="saveApptBtn">حفظ التعديل</button>
+        <button type="button" class="btn btn-primary" id="confirmApptBtn" hidden>تأكيد الموعد</button>
+        <button type="button" class="btn btn-primary" id="completeVisitBtn" hidden>حفظ إنهاء الزيارة</button>
+        <button type="button" class="btn btn-primary" id="retrySyncBtn" hidden>إعادة المزامنة للموقع</button>
       </footer>
     </form>
   </dialog>
