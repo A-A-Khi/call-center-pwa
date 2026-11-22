@@ -82,23 +82,10 @@ body {
 .brand-mark {
   width: 48px;
   height: 48px;
-  border-radius: 16px;
-  background:
-    linear-gradient(145deg, #245868, var(--navy)),
-    radial-gradient(circle at 30% 25%, rgba(232, 194, 122, 0.55), transparent 45%);
-  box-shadow: 0 10px 24px rgba(26, 58, 74, 0.28);
-  position: relative;
+  border-radius: 14px;
+  background: #000 url("./icons/icon-192.png") center / cover no-repeat;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
   overflow: hidden;
-}
-
-.brand-mark::after {
-  content: "";
-  position: absolute;
-  inset: 14px 12px auto;
-  height: 3px;
-  border-radius: 99px;
-  background: rgba(255, 255, 255, 0.7);
-  box-shadow: 0 8px 0 rgba(232, 194, 122, 0.85);
 }
 
 .brand-kicker {
