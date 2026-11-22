@@ -5,8 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#1a3a4a" />
   <meta name="description" content="جدول مواعيد الطبيب — تأكيد المواعيد وتسجيل الزيارة والفلوس" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="مواعيد الطبيب" />
+  <link rel="manifest" href="./doctor.webmanifest" />
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -27,6 +30,7 @@
       </div>
     </div>
     <div class="top-actions">
+      <button type="button" class="btn btn-primary" id="installBtn">تثبيت التطبيق</button>
       <button type="button" class="btn btn-ghost" id="notifyBtn" title="تفعيل الإشعارات">الإشعارات</button>
       <a class="btn btn-ghost" href="./index.html">الكول سنتر</a>
     </div>
@@ -181,6 +185,31 @@
         <button type="button" class="btn btn-primary" id="confirmApptBtn" hidden>تأكيد الموعد</button>
         <button type="button" class="btn btn-primary" id="completeVisitBtn" hidden>حفظ إنهاء الزيارة</button>
         <button type="button" class="btn btn-primary" id="retrySyncBtn" hidden>إعادة المزامنة للموقع</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog class="sheet install-sheet" id="installSheet" aria-labelledby="installSheetTitle">
+    <form method="dialog" class="sheet-form">
+      <header class="sheet-head">
+        <div>
+          <p class="sheet-kicker">iPhone</p>
+          <h3 id="installSheetTitle">تثبيت مواعيد الطبيب</h3>
+        </div>
+        <button type="submit" class="icon-btn" value="cancel" aria-label="إغلاق">✕</button>
+      </header>
+      <div class="sheet-body install-steps">
+        <p class="install-lead">على الآيفون لازم التثبيت من Safari كده:</p>
+        <ol>
+          <li>افتح الصفحة دي من <strong>Safari</strong> (مش Chrome).</li>
+          <li>اضغط زر <strong>المشاركة</strong> <span class="share-glyph" aria-hidden="true">□↑</span> تحت في وسط الشاشة.</li>
+          <li>اختار <strong>إضافة إلى الشاشة الرئيسية</strong>.</li>
+          <li>اضغط <strong>إضافة</strong> — هيظهر أيقونة التطبيق زي التطبيقات العادية.</li>
+        </ol>
+        <p class="install-note">بعدها افتحه من الأيقونة عشان يشتغل بملء الشاشة وإشعارات أوضح.</p>
+      </div>
+      <footer class="sheet-actions">
+        <button type="submit" class="btn btn-primary" value="cancel">فهمت</button>
       </footer>
     </form>
   </dialog>

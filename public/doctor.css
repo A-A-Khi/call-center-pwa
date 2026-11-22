@@ -782,6 +782,49 @@ textarea:focus {
   flex: 1;
 }
 
+.install-steps {
+  gap: 0.75rem;
+}
+
+.install-lead {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+}
+
+.install-steps ol {
+  margin: 0;
+  padding: 0 1.2rem 0 0;
+  display: grid;
+  gap: 0.65rem;
+  color: var(--ink);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.install-note {
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+  border-radius: 12px;
+  background: rgba(31, 122, 108, 0.1);
+  color: var(--sea-deep);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.share-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.6rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: #fff;
+  font-family: var(--display);
+  font-size: 0.78rem;
+}
+
 .toast {
   position: fixed;
   left: 50%;
@@ -798,6 +841,12 @@ textarea:focus {
   transition: 0.25s ease;
   z-index: 40;
   max-width: calc(100vw - 2rem);
+}
+
+@media (display-mode: standalone) {
+  .top-actions #installBtn {
+    display: none;
+  }
 }
 
 .toast.show {

@@ -29,7 +29,10 @@ const todayBannerTitle = document.getElementById("todayBannerTitle");
 const todayBannerText = document.getElementById("todayBannerText");
 const jumpTodayBtn = document.getElementById("jumpTodayBtn");
 const notifyBtn = document.getElementById("notifyBtn");
+const installBtn = document.getElementById("installBtn");
+const installSheet = document.getElementById("installSheet");
 const toast = document.getElementById("toast");
+let deferredInstallPrompt = null;
 const apptDialog = document.getElementById("apptDialog");
 const editApptId = document.getElementById("editApptId");
 const editPatientName = document.getElementById("editPatientName");
@@ -850,6 +853,55 @@ function updateNotifyButton() {
   }
 }
 
+function isIosDevice() {
+  const ua = navigator.userAgent || "";
+  const iOS = /iphone|ipad|ipod/i.test(ua);
+  const iPadOs = navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+  return iOS || iPadOs;
+}
+
+function isStandaloneApp() {
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.navigator.standalone === true
+  );
+}
+
+function updateInstallButton() {
+  if (!installBtn) return;
+  if (isStandaloneApp()) {
+    installBtn.hidden = true;
+    return;
+  }
+  installBtn.hidden = false;
+  installBtn.textContent = isIosDevice() ? "تثبيت على الآيفون" : "تثبيت التطبيق";
+}
+
+async function handleInstallClick() {
+  if (isStandaloneApp()) {
+    showToast("التطبيق مثبت بالفعل");
+    return;
+  }
+
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    const choice = await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    if (choice?.outcome === "accepted") {
+      installBtn.hidden = true;
+      showToast("تم تثبيت التطبيق");
+    }
+    return;
+  }
+
+  if (isIosDevice()) {
+    installSheet?.showModal();
+    return;
+  }
+
+  showToast("من قائمة المتصفح اختَر تثبيت التطبيق / Add to Home Screen");
+}
+
 function handleNewAndTodayNotifications(list) {
   const active = list.filter(isActive);
   const ids = new Set(active.map((a) => a.id));
@@ -943,6 +995,24 @@ function bindUi() {
     requestNotifications();
   });
 
+  if (installBtn) {
+    installBtn.addEventListener("click", () => {
+      handleInstallClick();
+    });
+  }
+
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    updateInstallButton();
+  });
+
+  window.addEventListener("appinstalled", () => {
+    deferredInstallPrompt = null;
+    if (installBtn) installBtn.hidden = true;
+    showToast("تم تثبيت مواعيد الطبيب");
+  });
+
   saveApptBtn.addEventListener("click", () => {
     saveAppointmentEdits();
   });
@@ -1026,6 +1096,7 @@ function checkUpcomingReminders() {
 }
 
 updateNotifyButton();
+updateInstallButton();
 bindUi();
 startListening();
 renderAll();

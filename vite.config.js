@@ -16,7 +16,12 @@ export default defineConfig({
   plugins: [
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["icons/icon.svg", "icons/icon-192.png", "icons/icon-512.png"],
+      includeAssets: [
+        "icons/icon.svg",
+        "icons/icon-192.png",
+        "icons/icon-512.png",
+        "doctor.webmanifest",
+      ],
       manifest: {
         name: "كول سنتر — تسجيل العملاء",
         short_name: "كول سنتر",
