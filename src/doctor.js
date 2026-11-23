@@ -846,7 +846,7 @@ async function notifyDoctor(title, body, options = {}) {
     renotify: Boolean(options.renotify),
     requireInteraction: Boolean(options.requireInteraction),
     data: {
-      url: new URL(`${import.meta.env.BASE_URL}doctor.html`, window.location.origin).href,
+      url: new URL(`${import.meta.env.BASE_URL}doctor/`, window.location.origin).href,
       ...options.data,
     },
   };
@@ -955,30 +955,63 @@ function isStandaloneApp() {
   );
 }
 
+async function isDoctorPwaInstalled() {
+  if (!("getInstalledRelatedApps" in navigator)) return null;
+  try {
+    const apps = await navigator.getInstalledRelatedApps();
+    return apps.some(
+      (app) =>
+        (app.url && /doctor\.webmanifest/i.test(app.url)) ||
+        (app.id && /\/doctor\/?/i.test(app.id))
+    );
+  } catch {
+    return null;
+  }
+}
+
 function updateInstallButton() {
   if (!installBtn) return;
-  if (isStandaloneApp()) {
-    installBtn.hidden = true;
-    return;
-  }
   installBtn.hidden = false;
   installBtn.textContent = isIosDevice() ? "تثبيت على الآيفون" : "تثبيت التطبيق";
+
+  // Hide only when this doctor app is confirmed installed (or launched as itself).
+  isDoctorPwaInstalled().then((installed) => {
+    if (!installBtn) return;
+    if (installed === true) {
+      installBtn.hidden = true;
+      return;
+    }
+    // Fallback: standalone on /doctor/ without a pending install prompt usually means doctor is installed.
+    // If the old call-center scope swallowed /doctor/, beforeinstallprompt stays absent AND
+    // getInstalledRelatedApps returns false — keep the button so we can guide the user.
+    if (installed === null && isStandaloneApp() && !deferredInstallPrompt) {
+      installBtn.hidden = true;
+    }
+  });
 }
 
 async function handleInstallClick() {
-  if (isStandaloneApp()) {
-    showToast("التطبيق مثبت بالفعل");
-    return;
-  }
-
   if (deferredInstallPrompt) {
     deferredInstallPrompt.prompt();
     const choice = await deferredInstallPrompt.userChoice;
     deferredInstallPrompt = null;
     if (choice?.outcome === "accepted") {
       installBtn.hidden = true;
-      showToast("تم تثبيت التطبيق");
+      showToast("تم تثبيت مواعيد الطبيب");
     }
+    return;
+  }
+
+  const doctorInstalled = await isDoctorPwaInstalled();
+  if (doctorInstalled === true) {
+    showToast("مواعيد الطبيب مثبتة بالفعل");
+    return;
+  }
+
+  if (isStandaloneApp() && doctorInstalled !== true) {
+    showToast(
+      "احذف تطبيق الكول سنتر القديم، افتح رابط الطبيب من المتصفح، ثم ثبّته لوحده"
+    );
     return;
   }
 
@@ -987,7 +1020,7 @@ async function handleInstallClick() {
     return;
   }
 
-  showToast("من قائمة المتصفح اختَر تثبيت التطبيق / Add to Home Screen");
+  showToast("من قائمة المتصفح اختَر تثبيت التطبيق / Install app");
 }
 
 function handleNewAndTodayNotifications(list) {

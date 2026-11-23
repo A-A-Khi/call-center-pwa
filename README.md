@@ -7,8 +7,9 @@
 ## الروابط
 
 - الكود: https://github.com/A-A-Khi/call-center-pwa
-- الكول سنتر: https://a-a-khi.github.io/call-center-pwa/
-- مواعيد الطبيب: https://a-a-khi.github.io/call-center-pwa/doctor.html
+- الكول سنتر: https://a-a-khi.github.io/call-center-pwa/center/
+- مواعيد الطبيب: https://a-a-khi.github.io/call-center-pwa/doctor/
+- (الجذر `/call-center-pwa/` يحوّل تلقائيًا للكول سنتر)
 
 ## التشغيل محليًا
 
@@ -46,6 +47,10 @@ npm run build
 - المزامنة مع الموقع الرئيسي (خطوة تالية): `POST /api/v1/integrations/doctor-visits`
 - الإشعارات من المتصفح: حجوزات جديدة + ملخص مواعيد اليوم
 
-محليًا: افتح `/doctor.html` بعد `npm run dev`.
+محليًا بعد `npm run dev`:
+- الكول سنتر: `/center/`
+- مواعيد الطبيب: `/doctor/`
+
+التطبيقان PWA منفصلان (scopes مختلفة). لو كان النسخة القديمة مثبتة، احذفها من الجهاز ثم ثبّت كل واحد لوحده.
 
 حدّث قواعد Firestore من `firestore.rules.txt` لو مجموعة `appointments` اترفضت.

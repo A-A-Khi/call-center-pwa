@@ -2,7 +2,7 @@
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const targetUrl = new URL(
-    (event.notification.data && event.notification.data.url) || "./doctor.html",
+    (event.notification.data && event.notification.data.url) || "./doctor/",
     self.registration.scope
   ).href;
 

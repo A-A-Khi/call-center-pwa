@@ -1,42 +1,50 @@
 {
+  "id": "/call-center-pwa/doctor/",
   "name": "مواعيد الطبيب — Dentist on Call",
   "short_name": "مواعيد الطبيب",
   "description": "تأكيد المواعيد وتسجيل الزيارات والفلوس ومزامنتها مع النظام الرئيسي",
-  "start_url": "./doctor.html",
-  "scope": "./",
+  "start_url": "/call-center-pwa/doctor/",
+  "scope": "/call-center-pwa/doctor/",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#0f172a",
+  "theme_color": "#1e40af",
   "lang": "ar",
   "dir": "rtl",
+  "prefer_related_applications": false,
+  "related_applications": [
+    {
+      "platform": "webapp",
+      "url": "https://a-a-khi.github.io/call-center-pwa/doctor.webmanifest"
+    }
+  ],
   "icons": [
     {
-      "src": "icons/icon-192.png",
+      "src": "/call-center-pwa/icons/doctor-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icons/icon-512.png",
+      "src": "/call-center-pwa/icons/doctor-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icons/icon-192.png",
+      "src": "/call-center-pwa/icons/doctor-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "icons/icon-512.png",
+      "src": "/call-center-pwa/icons/doctor-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "icons/apple-touch-icon.png",
+      "src": "/call-center-pwa/icons/doctor-apple-touch-icon.png",
       "sizes": "180x180",
       "type": "image/png",
       "purpose": "any"

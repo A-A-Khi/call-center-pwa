@@ -3,20 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#000000" />
+  <meta name="theme-color" content="#1e40af" />
   <meta name="description" content="جدول مواعيد الطبيب — تأكيد المواعيد وتسجيل الزيارة والفلوس" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="مواعيد الطبيب" />
-  <link rel="manifest" href="./doctor.webmanifest" />
-  <link rel="icon" href="icons/icon-192.png" type="image/png" />
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" sizes="180x180" />
-  <link rel="apple-touch-icon" href="icons/icon-192.png" sizes="192x192" />
+  <link rel="manifest" href="/call-center-pwa/doctor.webmanifest" />
+  <link rel="icon" href="/call-center-pwa/icons/doctor-192.png" type="image/png" />
+  <link rel="apple-touch-icon" href="/call-center-pwa/icons/doctor-apple-touch-icon.png" sizes="180x180" />
+  <link rel="apple-touch-icon" href="/call-center-pwa/icons/doctor-192.png" sizes="192x192" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Lexend:wght@500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./doctor.css" />
+  <link rel="stylesheet" href="../doctor.css" />
   <title>مواعيد الطبيب</title>
 </head>
 <body>
@@ -33,7 +33,7 @@
     <div class="top-actions">
       <button type="button" class="btn btn-primary" id="installBtn">تثبيت التطبيق</button>
       <button type="button" class="btn btn-ghost" id="notifyBtn" title="تفعيل الإشعارات">الإشعارات</button>
-      <a class="btn btn-ghost" href="./index.html">الكول سنتر</a>
+      <a class="btn btn-ghost" href="/call-center-pwa/center/" target="_blank" rel="noopener">الكول سنتر</a>
     </div>
   </header>
 
@@ -217,6 +217,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="./src/doctor.js"></script>
+  <script type="module" src="../src/doctor.js"></script>
 </body>
 </html>
