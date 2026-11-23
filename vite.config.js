@@ -23,6 +23,7 @@ export default defineConfig({
         "icons/apple-touch-icon.png",
         "icons/logo-official.png",
         "doctor.webmanifest",
+        "sw-notifications.js",
       ],
       manifest: {
         name: "كول سنتر — Dentist on Call",
@@ -64,9 +65,13 @@ export default defineConfig({
         ],
       },
       workbox: {
+        importScripts: ["sw-notifications.js"],
         navigateFallback: "index.html",
         navigateFallbackDenylist: [/doctor\.html/],
         globPatterns: ["**/*.{js,css,html,svg,png,webmanifest}"],
+      },
+      devOptions: {
+        enabled: false,
       },
     }),
   ],

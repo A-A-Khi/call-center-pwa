@@ -5,8 +5,18 @@ import {
   setDoc,
   updateDoc,
 } from "firebase/firestore";
+import { registerSW } from "virtual:pwa-register";
 import { db } from "./firebase.js";
 import { DOC_SYNC } from "./sync-config.js";
+
+registerSW({
+  immediate: true,
+  onRegisteredSW(_url, registration) {
+    if (registration) {
+      window.__doctorSwRegistration = registration;
+    }
+  },
+});
 
 const APPOINTMENTS = "appointments";
 const LEADS = "leads";
@@ -801,53 +811,131 @@ function canNotify() {
   return "Notification" in window && Notification.permission === "granted";
 }
 
-function notifyDoctor(title, body) {
-  if (!canNotify()) return;
+function notificationIconUrl() {
+  return new URL(`${import.meta.env.BASE_URL}icons/icon-192.png`, window.location.origin).href;
+}
+
+function notificationBadgeUrl() {
+  return new URL(`${import.meta.env.BASE_URL}icons/apple-touch-icon.png`, window.location.origin).href;
+}
+
+async function getSwRegistration() {
+  if (window.__doctorSwRegistration) return window.__doctorSwRegistration;
+  if (!("serviceWorker" in navigator)) return null;
   try {
-    new Notification(title, {
-      body,
-      icon: "./icons/icon-192.png",
-      lang: "ar",
-      dir: "rtl",
-      tag: `doctor-${title}-${body}`.slice(0, 80),
-    });
+    const ready = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((resolve) => setTimeout(() => resolve(null), 2500)),
+    ]);
+    return ready || navigator.serviceWorker.getRegistration();
+  } catch {
+    return null;
+  }
+}
+
+async function notifyDoctor(title, body, options = {}) {
+  if (!canNotify()) return false;
+
+  const payload = {
+    body,
+    icon: notificationIconUrl(),
+    badge: notificationBadgeUrl(),
+    lang: "ar",
+    dir: "rtl",
+    tag: options.tag || `doctor-${title}`.slice(0, 64),
+    renotify: Boolean(options.renotify),
+    requireInteraction: Boolean(options.requireInteraction),
+    data: {
+      url: new URL(`${import.meta.env.BASE_URL}doctor.html`, window.location.origin).href,
+      ...options.data,
+    },
+  };
+
+  try {
+    const reg = await getSwRegistration();
+    if (reg && typeof reg.showNotification === "function") {
+      await reg.showNotification(title, payload);
+      return true;
+    }
+    const n = new Notification(title, payload);
+    n.onclick = () => {
+      window.focus();
+      n.close();
+    };
+    return true;
   } catch (err) {
-    console.warn(err);
+    console.warn("notification failed", err);
+    try {
+      new Notification(title, payload);
+      return true;
+    } catch (fallbackErr) {
+      console.warn(fallbackErr);
+      return false;
+    }
   }
 }
 
 async function requestNotifications() {
   if (!("Notification" in window)) {
-    showToast("المتصفح لا يدعم الإشعارات");
+    showToast(
+      isIosDevice()
+        ? "على الآيفون: ثبّت التطبيق من Safari أولًا ثم فعّل الإشعارات من جواه"
+        : "المتصفح لا يدعم الإشعارات"
+    );
     return false;
   }
+
+  if (isIosDevice() && !isStandaloneApp()) {
+    showToast("ثبّت التطبيق على الشاشة الرئيسية من Safari ثم افتحه وفعّل الإشعارات");
+    installSheet?.showModal();
+    return false;
+  }
+
   if (Notification.permission === "granted") {
     notifyBtn.textContent = "الإشعارات مفعّلة";
-    showToast("الإشعارات مفعّلة بالفعل");
-    return true;
+    const ok = await notifyDoctor(
+      "مواعيد الطبيب",
+      "الإشعارات شغالة — هتوصلك تنبيه عند حجز جديد أو موعد قريب",
+      { tag: "doctor-test", renotify: true }
+    );
+    showToast(ok ? "تم إرسال إشعار تجريبي — لو ظهر يبقى الإشعارات تمام" : "الصلاحية موجودة لكن الإشعار اتفشل");
+    return ok;
   }
+
   if (Notification.permission === "denied") {
-    showToast("الإشعارات مرفوضة من إعدادات المتصفح");
+    showToast("الإشعارات مرفوضة — افتح إعدادات الآيفون/التطبيق واسمح بالإشعارات");
     return false;
   }
+
   const result = await Notification.requestPermission();
+  updateNotifyButton();
   if (result === "granted") {
-    notifyBtn.textContent = "الإشعارات مفعّلة";
-    showToast("تم تفعيل إشعارات المواعيد");
-    notifyDoctor("مواعيد الطبيب", "هتوصلك تنبيهات الحجوزات الجديدة ومواعيد اليوم");
-    return true;
+    const ok = await notifyDoctor(
+      "مواعيد الطبيب",
+      "تم تفعيل الإشعارات بنجاح",
+      { tag: "doctor-enabled", renotify: true }
+    );
+    showToast(ok ? "تم تفعيل الإشعارات وإرسال تجربة" : "تم التفعيل لكن الإشعار التجريبي اتفشل");
+    return ok;
   }
+
   showToast("لم يتم تفعيل الإشعارات");
   return false;
 }
 
 function updateNotifyButton() {
   if (!("Notification" in window)) {
+    if (isIosDevice() && !isStandaloneApp()) {
+      notifyBtn.hidden = false;
+      notifyBtn.textContent = "تفعيل الإشعارات";
+      return;
+    }
     notifyBtn.hidden = true;
     return;
   }
+  notifyBtn.hidden = false;
   if (Notification.permission === "granted") {
-    notifyBtn.textContent = "الإشعارات مفعّلة";
+    notifyBtn.textContent = "تجربة إشعار";
   } else {
     notifyBtn.textContent = "تفعيل الإشعارات";
   }
