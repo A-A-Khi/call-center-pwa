@@ -100,6 +100,34 @@ let selectedDate = todayISO();
 let toastTimer = null;
 let knownIds = loadKnownIds();
 let initialSnapshot = true;
+let mutationBusy = false;
+
+async function withBusy(button, fn, { loadingText, nested = false } = {}) {
+  if (!nested && mutationBusy) return;
+  if (button?.dataset?.busy === "1") return;
+  const ownsLock = !nested;
+  if (ownsLock) mutationBusy = true;
+  const originalText = button?.textContent;
+  if (button) {
+    button.dataset.busy = "1";
+    button.disabled = true;
+    button.setAttribute("aria-busy", "true");
+    button.classList.add("is-loading");
+    if (loadingText) button.textContent = loadingText;
+  }
+  try {
+    return await fn();
+  } finally {
+    if (ownsLock) mutationBusy = false;
+    if (button) {
+      button.dataset.busy = "0";
+      button.disabled = false;
+      button.removeAttribute("aria-busy");
+      button.classList.remove("is-loading");
+      if (loadingText) button.textContent = originalText;
+    }
+  }
+}
 
 function pad2(n) {
   return String(n).padStart(2, "0");
@@ -914,48 +942,49 @@ function downloadBlob(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
 
-async function shareInvoiceForAppointment(appt) {
+async function shareInvoiceForAppointment(appt, { nested = false } = {}) {
   if (!appt?.visit) {
     showToast("لا توجد فاتورة لهذه الزيارة");
     return;
   }
-  if (shareInvoiceBtn) shareInvoiceBtn.disabled = true;
-  try {
-    const canvas = await renderInvoiceCanvas(appt);
-    const blob = await canvasToBlob(canvas);
-    const filename = `${appt.visit.invoiceNumber || "invoice"}.png`;
-    const file = new File([blob], filename, { type: "image/png" });
-    const text = invoiceShareText(appt);
+  await withBusy(
+    shareInvoiceBtn,
+    async () => {
+      const canvas = await renderInvoiceCanvas(appt);
+      const blob = await canvasToBlob(canvas);
+      const filename = `${appt.visit.invoiceNumber || "invoice"}.png`;
+      const file = new File([blob], filename, { type: "image/png" });
+      const text = invoiceShareText(appt);
 
-    if (navigator.canShare?.({ files: [file] })) {
-      try {
-        await navigator.share({
-          files: [file],
-          title: `فاتورة ${INVOICE_BRAND}`,
-          text,
-        });
-        showToast("تم فتح المشاركة — ابعت الفاتورة للمريض");
-      } catch (shareErr) {
-        if (shareErr?.name !== "AbortError") throw shareErr;
+      if (navigator.canShare?.({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: `فاتورة ${INVOICE_BRAND}`,
+            text,
+          });
+          showToast("تم فتح المشاركة — ابعت الفاتورة للمريض");
+        } catch (shareErr) {
+          if (shareErr?.name !== "AbortError") throw shareErr;
+        }
+        return;
       }
-      return;
-    }
 
-    downloadBlob(blob, filename);
-    const waPhone = normalizeWhatsAppPhone(appt.phone);
-    if (waPhone) {
-      window.open(
-        `https://wa.me/${waPhone}?text=${encodeURIComponent(`${text}\n\n(صورة الفاتورة اتحمّلت على الجهاز — ارفقها من المعرض)`)}`,
-        "_blank",
-        "noopener"
-      );
-      showToast("اتحمّلت صورة الفاتورة — وارفقها من واتساب");
-    } else {
-      showToast("اتحمّلت صورة الفاتورة على الجهاز");
-    }
-  } finally {
-    if (shareInvoiceBtn) shareInvoiceBtn.disabled = false;
-  }
+      downloadBlob(blob, filename);
+      const waPhone = normalizeWhatsAppPhone(appt.phone);
+      if (waPhone) {
+        window.open(
+          `https://wa.me/${waPhone}?text=${encodeURIComponent(`${text}\n\n(صورة الفاتورة اتحمّلت على الجهاز — ارفقها من المعرض)`)}`,
+          "_blank",
+          "noopener"
+        );
+        showToast("اتحمّلت صورة الفاتورة — وارفقها من واتساب");
+      } else {
+        showToast("اتحمّلت صورة الفاتورة على الجهاز");
+      }
+    },
+    { loadingText: "جاري التحضير...", nested }
+  );
 }
 
 async function shareCurrentInvoice() {
@@ -1096,32 +1125,35 @@ async function saveAppointmentEdits() {
   const updatedAt = new Date().toISOString();
   const details = editDetails.value.trim();
 
-  saveApptBtn.disabled = true;
-  try {
-    await setDoc(
-      doc(db, APPOINTMENTS, id),
-      {
-        visitDate,
-        visitTime,
-        details,
-        updatedAt,
-      },
-      { merge: true }
-    );
-    await syncLeadFromAppointment(appt, {
-      visitDate,
-      visitTime,
-      booked: "yes",
-      details: details || appt.details || "",
-    });
-    apptDialog.close();
-    showToast("تم تحديث الموعد");
-  } catch (err) {
-    console.error(err);
-    showToast("فشل حفظ التعديل");
-  } finally {
-    saveApptBtn.disabled = false;
-  }
+  await withBusy(
+    saveApptBtn,
+    async () => {
+      try {
+        await setDoc(
+          doc(db, APPOINTMENTS, id),
+          {
+            visitDate,
+            visitTime,
+            details,
+            updatedAt,
+          },
+          { merge: true }
+        );
+        await syncLeadFromAppointment(appt, {
+          visitDate,
+          visitTime,
+          booked: "yes",
+          details: details || appt.details || "",
+        });
+        apptDialog.close();
+        showToast("تم تحديث الموعد");
+      } catch (err) {
+        console.error(err);
+        showToast("فشل حفظ التعديل");
+      }
+    },
+    { loadingText: "جاري الحفظ..." }
+  );
 }
 
 async function confirmAppointment() {
@@ -1137,35 +1169,38 @@ async function confirmAppointment() {
   }
 
   const updatedAt = new Date().toISOString();
-  confirmApptBtn.disabled = true;
-  try {
-    await setDoc(
-      doc(db, APPOINTMENTS, id),
-      {
-        visitDate,
-        visitTime,
-        details: editDetails.value.trim(),
-        status: "confirmed",
-        doctorConfirmedAt: updatedAt,
-        updatedAt,
-      },
-      { merge: true }
-    );
-    await syncLeadFromAppointment(appt, {
-      visitDate,
-      visitTime,
-      booked: "yes",
-      doctorStatus: "confirmed",
-    });
-    apptDialog.close();
-    showToast("تم تأكيد الموعد");
-    notifyDoctor("تم تأكيد موعد", `${appt.patientName || "مريض"} — ${formatDateLabel(visitDate)}`);
-  } catch (err) {
-    console.error(err);
-    showToast("فشل تأكيد الموعد");
-  } finally {
-    confirmApptBtn.disabled = false;
-  }
+  await withBusy(
+    confirmApptBtn,
+    async () => {
+      try {
+        await setDoc(
+          doc(db, APPOINTMENTS, id),
+          {
+            visitDate,
+            visitTime,
+            details: editDetails.value.trim(),
+            status: "confirmed",
+            doctorConfirmedAt: updatedAt,
+            updatedAt,
+          },
+          { merge: true }
+        );
+        await syncLeadFromAppointment(appt, {
+          visitDate,
+          visitTime,
+          booked: "yes",
+          doctorStatus: "confirmed",
+        });
+        apptDialog.close();
+        showToast("تم تأكيد الموعد");
+        notifyDoctor("تم تأكيد موعد", `${appt.patientName || "مريض"} — ${formatDateLabel(visitDate)}`);
+      } catch (err) {
+        console.error(err);
+        showToast("فشل تأكيد الموعد");
+      }
+    },
+    { loadingText: "جاري التأكيد..." }
+  );
 }
 
 async function completeVisit() {
@@ -1198,92 +1233,95 @@ async function completeVisit() {
     ...appt,
     visitDate: editVisitDate.value || appt.visitDate,
   });
-  completeVisitBtn.disabled = true;
-  try {
-    const visitPayload = {
-      serviceName,
-      costEgp,
-      paidEgp,
-      clinicalNotes,
-      completedAt: updatedAt,
-      completedBy: "doctor",
-      invoiceIssuedAt: updatedAt,
-      invoiceNumber,
-      paymentStatus: "unpaid",
-    };
-    await setDoc(
-      doc(db, APPOINTMENTS, id),
-      {
-        status: "completed",
-        visit: visitPayload,
-        syncStatus: "pending",
-        syncError: "",
-        updatedAt,
-      },
-      { merge: true }
-    );
-    await syncLeadFromAppointment(appt, {
-      booked: "yes",
-      doctorStatus: "completed",
-      visitServiceName: serviceName,
-      visitCostEgp: costEgp,
-      visitPaidEgp: paidEgp,
-    });
-
-    let followUpCreated = false;
-    if (wantsFollowUp) {
-      await createFollowUpAppointment(appt, {
-        visitDate: followUpDate,
-        visitTime: followUpTime,
-        details: followUpNote,
-      });
-      followUpCreated = true;
-    }
-
-    const fresh = {
-      ...appt,
-      status: "completed",
-      visit: visitPayload,
-      details: editDetails.value.trim() || appt.details,
-      visitDate: editVisitDate.value || appt.visitDate,
-      visitTime: editVisitTime.value || appt.visitTime,
-    };
-
-    try {
-      const result = await syncAppointmentToMainSite(fresh);
-      const code = result?.patientCode ? ` · ${result.patientCode}` : "";
-      const followMsg = followUpCreated
-        ? ` · ومتابعة ${formatDateLabel(followUpDate)}`
-        : "";
-      showToast(`تم إصدار الفاتورة ومزامنتها${code}${followMsg}`);
-      notifyDoctor(
-        followUpCreated ? "فاتورة + متابعة" : "فاتورة جاهزة للمشاركة",
-        `${appt.patientName || "مريض"} · ${serviceName} · ${costEgp} ج`
-      );
-      openDialog({ ...fresh, syncStatus: "synced", mainSite: {
-        ...(appt.mainSite || {}),
-        patientCode: result?.patientCode || appt.mainSite?.patientCode || null,
-      }});
+  await withBusy(
+    completeVisitBtn,
+    async () => {
       try {
-        await shareInvoiceForAppointment(fresh);
-      } catch (shareErr) {
-        console.warn(shareErr);
+        const visitPayload = {
+          serviceName,
+          costEgp,
+          paidEgp,
+          clinicalNotes,
+          completedAt: updatedAt,
+          completedBy: "doctor",
+          invoiceIssuedAt: updatedAt,
+          invoiceNumber,
+          paymentStatus: "unpaid",
+        };
+        await setDoc(
+          doc(db, APPOINTMENTS, id),
+          {
+            status: "completed",
+            visit: visitPayload,
+            syncStatus: "pending",
+            syncError: "",
+            updatedAt,
+          },
+          { merge: true }
+        );
+        await syncLeadFromAppointment(appt, {
+          booked: "yes",
+          doctorStatus: "completed",
+          visitServiceName: serviceName,
+          visitCostEgp: costEgp,
+          visitPaidEgp: paidEgp,
+        });
+
+        let followUpCreated = false;
+        if (wantsFollowUp) {
+          await createFollowUpAppointment(appt, {
+            visitDate: followUpDate,
+            visitTime: followUpTime,
+            details: followUpNote,
+          });
+          followUpCreated = true;
+        }
+
+        const fresh = {
+          ...appt,
+          status: "completed",
+          visit: visitPayload,
+          details: editDetails.value.trim() || appt.details,
+          visitDate: editVisitDate.value || appt.visitDate,
+          visitTime: editVisitTime.value || appt.visitTime,
+        };
+
+        try {
+          const result = await syncAppointmentToMainSite(fresh);
+          const code = result?.patientCode ? ` · ${result.patientCode}` : "";
+          const followMsg = followUpCreated
+            ? ` · ومتابعة ${formatDateLabel(followUpDate)}`
+            : "";
+          showToast(`تم إصدار الفاتورة ومزامنتها${code}${followMsg}`);
+          notifyDoctor(
+            followUpCreated ? "فاتورة + متابعة" : "فاتورة جاهزة للمشاركة",
+            `${appt.patientName || "مريض"} · ${serviceName} · ${costEgp} ج`
+          );
+          openDialog({ ...fresh, syncStatus: "synced", mainSite: {
+            ...(appt.mainSite || {}),
+            patientCode: result?.patientCode || appt.mainSite?.patientCode || null,
+          }});
+          try {
+            await shareInvoiceForAppointment(fresh, { nested: true });
+          } catch (shareErr) {
+            console.warn(shareErr);
+          }
+        } catch (syncErr) {
+          console.error(syncErr);
+          await markSyncFailed(id, syncErr.message || syncErr);
+          const followMsg = followUpCreated ? " وحجز المتابعة اتعمل" : "";
+          showToast(
+            `الفاتورة اتسجّلت محليًا${followMsg} لكن المزامنة فشلت — تقدر تشاركها وتعدّل الدفع`
+          );
+          openDialog({ ...fresh, syncStatus: "failed", syncError: String(syncErr.message || syncErr) });
+        }
+      } catch (err) {
+        console.error(err);
+        showToast("فشل إصدار الفاتورة");
       }
-    } catch (syncErr) {
-      console.error(syncErr);
-      await markSyncFailed(id, syncErr.message || syncErr);
-      const followMsg = followUpCreated ? " وحجز المتابعة اتعمل" : "";
-      showToast(
-        `الفاتورة اتسجّلت محليًا${followMsg} لكن المزامنة فشلت — تقدر تشاركها وتعدّل الدفع`
-      );
-      openDialog({ ...fresh, syncStatus: "failed", syncError: String(syncErr.message || syncErr) });
-    }
-  } catch (err) {
-    console.error(err);
-    showToast("فشل إصدار الفاتورة");
-  } finally {
-    completeVisitBtn.disabled = false;
-  }
+    },
+    { loadingText: "جاري الإصدار..." }
+  );
 }
 
 async function saveCompletedVisitEdit() {
@@ -1302,67 +1340,70 @@ async function saveCompletedVisitEdit() {
   }
 
   const updatedAt = new Date().toISOString();
-  saveVisitEditBtn.disabled = true;
-  try {
-    const visitPayload = {
-      ...(appt.visit || {}),
-      serviceName,
-      costEgp,
-      paidEgp,
-      clinicalNotes,
-      invoiceNumber: appt.visit?.invoiceNumber || buildInvoiceNumber(appt),
-      invoiceIssuedAt: appt.visit?.invoiceIssuedAt || updatedAt,
-      paymentStatus: computePaymentStatus(costEgp, paidEgp),
-      updatedAt,
-      updatedBy: "doctor",
-    };
-    await setDoc(
-      doc(db, APPOINTMENTS, id),
-      {
-        visit: visitPayload,
-        syncStatus: "pending",
-        syncError: "",
-        updatedAt,
-      },
-      { merge: true }
-    );
-    await syncLeadFromAppointment(appt, {
-      doctorStatus: "completed",
-      visitServiceName: serviceName,
-      visitCostEgp: costEgp,
-      visitPaidEgp: paidEgp,
-    });
+  await withBusy(
+    saveVisitEditBtn,
+    async () => {
+      try {
+        const visitPayload = {
+          ...(appt.visit || {}),
+          serviceName,
+          costEgp,
+          paidEgp,
+          clinicalNotes,
+          invoiceNumber: appt.visit?.invoiceNumber || buildInvoiceNumber(appt),
+          invoiceIssuedAt: appt.visit?.invoiceIssuedAt || updatedAt,
+          paymentStatus: computePaymentStatus(costEgp, paidEgp),
+          updatedAt,
+          updatedBy: "doctor",
+        };
+        await setDoc(
+          doc(db, APPOINTMENTS, id),
+          {
+            visit: visitPayload,
+            syncStatus: "pending",
+            syncError: "",
+            updatedAt,
+          },
+          { merge: true }
+        );
+        await syncLeadFromAppointment(appt, {
+          doctorStatus: "completed",
+          visitServiceName: serviceName,
+          visitCostEgp: costEgp,
+          visitPaidEgp: paidEgp,
+        });
 
-    const fresh = {
-      ...appt,
-      status: "completed",
-      visit: visitPayload,
-    };
+        const fresh = {
+          ...appt,
+          status: "completed",
+          visit: visitPayload,
+        };
 
-    try {
-      const result = await syncAppointmentToMainSite(fresh);
-      const code = result?.patientCode ? ` · ${result.patientCode}` : "";
-      showToast(`تم تعديل الفاتورة ومزامنتها${code}`);
-      openDialog({
-        ...fresh,
-        syncStatus: "synced",
-        mainSite: {
-          ...(appt.mainSite || {}),
-          patientCode: result?.patientCode || appt.mainSite?.patientCode || null,
-        },
-      });
-    } catch (syncErr) {
-      console.error(syncErr);
-      await markSyncFailed(id, syncErr.message || syncErr);
-      showToast("التعديل اتحفظ محليًا لكن المزامنة فشلت — أعد المحاولة");
-      openDialog({ ...fresh, syncStatus: "failed", syncError: String(syncErr.message || syncErr) });
-    }
-  } catch (err) {
-    console.error(err);
-    showToast("فشل حفظ تعديل الفاتورة");
-  } finally {
-    saveVisitEditBtn.disabled = false;
-  }
+        try {
+          const result = await syncAppointmentToMainSite(fresh);
+          const code = result?.patientCode ? ` · ${result.patientCode}` : "";
+          showToast(`تم تعديل الفاتورة ومزامنتها${code}`);
+          openDialog({
+            ...fresh,
+            syncStatus: "synced",
+            mainSite: {
+              ...(appt.mainSite || {}),
+              patientCode: result?.patientCode || appt.mainSite?.patientCode || null,
+            },
+          });
+        } catch (syncErr) {
+          console.error(syncErr);
+          await markSyncFailed(id, syncErr.message || syncErr);
+          showToast("التعديل اتحفظ محليًا لكن المزامنة فشلت — أعد المحاولة");
+          openDialog({ ...fresh, syncStatus: "failed", syncError: String(syncErr.message || syncErr) });
+        }
+      } catch (err) {
+        console.error(err);
+        showToast("فشل حفظ تعديل الفاتورة");
+      }
+    },
+    { loadingText: "جاري الحفظ..." }
+  );
 }
 
 async function savePayment() {
@@ -1375,53 +1416,56 @@ async function savePayment() {
   if (paidEgp == null) return;
 
   const updatedAt = new Date().toISOString();
-  savePaymentBtn.disabled = true;
-  try {
-    const visitPayload = {
-      ...(appt.visit || {}),
-      paidEgp,
-      paymentStatus: computePaymentStatus(costEgp, paidEgp),
-      paymentUpdatedAt: updatedAt,
-      updatedAt,
-      updatedBy: "doctor",
-    };
-    await setDoc(
-      doc(db, APPOINTMENTS, id),
-      {
-        visit: visitPayload,
-        syncStatus: "pending",
-        syncError: "",
-        updatedAt,
-      },
-      { merge: true }
-    );
-    await syncLeadFromAppointment(appt, {
-      doctorStatus: "completed",
-      visitPaidEgp: paidEgp,
-      visitCostEgp: costEgp,
-    });
+  await withBusy(
+    savePaymentBtn,
+    async () => {
+      try {
+        const visitPayload = {
+          ...(appt.visit || {}),
+          paidEgp,
+          paymentStatus: computePaymentStatus(costEgp, paidEgp),
+          paymentUpdatedAt: updatedAt,
+          updatedAt,
+          updatedBy: "doctor",
+        };
+        await setDoc(
+          doc(db, APPOINTMENTS, id),
+          {
+            visit: visitPayload,
+            syncStatus: "pending",
+            syncError: "",
+            updatedAt,
+          },
+          { merge: true }
+        );
+        await syncLeadFromAppointment(appt, {
+          doctorStatus: "completed",
+          visitPaidEgp: paidEgp,
+          visitCostEgp: costEgp,
+        });
 
-    const fresh = { ...appt, status: "completed", visit: visitPayload };
-    try {
-      await syncAppointmentToMainSite(fresh);
-      showToast(
-        visitPayload.paymentStatus === "paid"
-          ? "تم تسجيل السداد بالكامل"
-          : `تم تسجيل دفعة ${paidEgp} ج · متبقي ${remainingBalance(costEgp, paidEgp)} ج`
-      );
-      openDialog({ ...fresh, syncStatus: "synced" });
-    } catch (syncErr) {
-      console.error(syncErr);
-      await markSyncFailed(id, syncErr.message || syncErr);
-      showToast("الدفعة اتحفظت محليًا لكن المزامنة فشلت");
-      openDialog({ ...fresh, syncStatus: "failed", syncError: String(syncErr.message || syncErr) });
-    }
-  } catch (err) {
-    console.error(err);
-    showToast("فشل حفظ الدفعة");
-  } finally {
-    savePaymentBtn.disabled = false;
-  }
+        const fresh = { ...appt, status: "completed", visit: visitPayload };
+        try {
+          await syncAppointmentToMainSite(fresh);
+          showToast(
+            visitPayload.paymentStatus === "paid"
+              ? "تم تسجيل السداد بالكامل"
+              : `تم تسجيل دفعة ${paidEgp} ج · متبقي ${remainingBalance(costEgp, paidEgp)} ج`
+          );
+          openDialog({ ...fresh, syncStatus: "synced" });
+        } catch (syncErr) {
+          console.error(syncErr);
+          await markSyncFailed(id, syncErr.message || syncErr);
+          showToast("الدفعة اتحفظت محليًا لكن المزامنة فشلت");
+          openDialog({ ...fresh, syncStatus: "failed", syncError: String(syncErr.message || syncErr) });
+        }
+      } catch (err) {
+        console.error(err);
+        showToast("فشل حفظ الدفعة");
+      }
+    },
+    { loadingText: "جاري الحفظ..." }
+  );
 }
 
 async function retryMainSiteSync() {
@@ -1429,21 +1473,24 @@ async function retryMainSiteSync() {
   const appt = appointments.find((a) => a.id === id);
   if (!appt || normalizeStatus(appt) !== "completed") return;
 
-  retrySyncBtn.disabled = true;
   syncStatusLine.textContent = "جاري المزامنة...";
   syncStatusLine.className = "sync-line is-pending";
-  try {
-    const result = await syncAppointmentToMainSite(appt);
-    const code = result?.patientCode ? ` · ${result.patientCode}` : "";
-    showToast(`تمت المزامنة مع الموقع الرئيسي${code}`);
-    apptDialog.close();
-  } catch (err) {
-    console.error(err);
-    await markSyncFailed(id, err.message || err);
-    showToast(`فشلت المزامنة: ${err.message || err}`);
-  } finally {
-    retrySyncBtn.disabled = false;
-  }
+  await withBusy(
+    retrySyncBtn,
+    async () => {
+      try {
+        const result = await syncAppointmentToMainSite(appt);
+        const code = result?.patientCode ? ` · ${result.patientCode}` : "";
+        showToast(`تمت المزامنة مع الموقع الرئيسي${code}`);
+        apptDialog.close();
+      } catch (err) {
+        console.error(err);
+        await markSyncFailed(id, err.message || err);
+        showToast(`فشلت المزامنة: ${err.message || err}`);
+      }
+    },
+    { loadingText: "جاري المزامنة..." }
+  );
 }
 
 async function cancelAppointment() {
@@ -1457,33 +1504,36 @@ async function cancelAppointment() {
   if (!ok) return;
 
   const updatedAt = new Date().toISOString();
-  cancelApptBtn.disabled = true;
-  try {
-    await setDoc(
-      doc(db, APPOINTMENTS, id),
-      {
-        status: "cancelled",
-        updatedAt,
-        cancelledAt: updatedAt,
-        cancelledBy: "doctor",
-      },
-      { merge: true }
-    );
-    await syncLeadFromAppointment(appt, {
-      booked: "no",
-      visitDate: "",
-      visitTime: "",
-      doctorStatus: "cancelled",
-    });
-    apptDialog.close();
-    showToast("تم إلغاء الموعد");
-    notifyDoctor("تم إلغاء موعد", `${appt.patientName || "مريض"} — ${formatDateLabel(appt.visitDate)}`);
-  } catch (err) {
-    console.error(err);
-    showToast("فشل إلغاء الموعد");
-  } finally {
-    cancelApptBtn.disabled = false;
-  }
+  await withBusy(
+    cancelApptBtn,
+    async () => {
+      try {
+        await setDoc(
+          doc(db, APPOINTMENTS, id),
+          {
+            status: "cancelled",
+            updatedAt,
+            cancelledAt: updatedAt,
+            cancelledBy: "doctor",
+          },
+          { merge: true }
+        );
+        await syncLeadFromAppointment(appt, {
+          booked: "no",
+          visitDate: "",
+          visitTime: "",
+          doctorStatus: "cancelled",
+        });
+        apptDialog.close();
+        showToast("تم إلغاء الموعد");
+        notifyDoctor("تم إلغاء موعد", `${appt.patientName || "مريض"} — ${formatDateLabel(appt.visitDate)}`);
+      } catch (err) {
+        console.error(err);
+        showToast("فشل إلغاء الموعد");
+      }
+    },
+    { loadingText: "جاري الإلغاء..." }
+  );
 }
 
 function canNotify() {
@@ -1791,8 +1841,9 @@ function bindUi() {
     renderAll();
   });
 
-  notifyBtn.addEventListener("click", () => {
-    requestNotifications();
+  notifyBtn.addEventListener("click", async () => {
+    await withBusy(notifyBtn, () => requestNotifications());
+    updateNotifyButton();
   });
 
   if (installBtn) {

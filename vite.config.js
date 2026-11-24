@@ -62,7 +62,7 @@ export default defineConfig({
         display: "standalone",
         orientation: "any",
         background_color: "#000000",
-        theme_color: "#0b5f5a",
+        theme_color: "#111111",
         lang: "ar",
         dir: "rtl",
         icons: [

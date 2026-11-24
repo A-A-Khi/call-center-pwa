@@ -77,6 +77,25 @@ let activeQuick = "all";
 
 agentName.value = localStorage.getItem(AGENT_KEY) || "";
 
+async function withBusy(button, fn, { loadingText } = {}) {
+  if (!button || button.dataset.busy === "1") return;
+  const originalText = button.textContent;
+  button.dataset.busy = "1";
+  button.disabled = true;
+  button.setAttribute("aria-busy", "true");
+  button.classList.add("is-loading");
+  if (loadingText) button.textContent = loadingText;
+  try {
+    return await fn();
+  } finally {
+    button.dataset.busy = "0";
+    button.disabled = false;
+    button.removeAttribute("aria-busy");
+    button.classList.remove("is-loading");
+    if (loadingText) button.textContent = originalText;
+  }
+}
+
 function pad2(n) {
   return String(n).padStart(2, "0");
 }
@@ -840,41 +859,44 @@ form.addEventListener("submit", async (e) => {
   }
 
   saving = true;
-  saveBtn.disabled = true;
-  try {
-    const savedId = await upsertLead(payload, leadId.value || null);
-    try {
-      await syncAppointment(savedId, {
-        ...payload,
-        createdAt: payload.createdAt || existing?.createdAt || nowIso,
-      });
-    } catch (apptErr) {
-      console.error(apptErr);
-      showToast(
-        "تم حفظ العميل، لكن فشل تسجيل الموعد — حدّث قواعد Firestore لمجموعة appointments"
-      );
-      setupPanel.hidden = false;
-      resetForm(true);
-      customerName.focus();
-      return;
-    }
-    const visitMsg =
-      bookedValue === "yes"
-        ? ` — زيارة ${formatDate(payload.visitDate)} الساعة ${formatTime(payload.visitTime)}`
-        : "";
-    showToast(
-      (isNew ? "تم حفظ العميل للفريق كله" : "تم تحديث بيانات العميل") + visitMsg
-    );
-    resetForm(true);
-    customerName.focus();
-  } catch (err) {
-    console.error(err);
-    showToast("فشل الحفظ — تأكد من قواعد Firestore");
-    setupPanel.hidden = false;
-  } finally {
-    saving = false;
-    saveBtn.disabled = false;
-  }
+  await withBusy(
+    saveBtn,
+    async () => {
+      try {
+        const savedId = await upsertLead(payload, leadId.value || null);
+        try {
+          await syncAppointment(savedId, {
+            ...payload,
+            createdAt: payload.createdAt || existing?.createdAt || nowIso,
+          });
+        } catch (apptErr) {
+          console.error(apptErr);
+          showToast(
+            "تم حفظ العميل، لكن فشل تسجيل الموعد — حدّث قواعد Firestore لمجموعة appointments"
+          );
+          setupPanel.hidden = false;
+          resetForm(true);
+          customerName.focus();
+          return;
+        }
+        const visitMsg =
+          bookedValue === "yes"
+            ? ` — زيارة ${formatDate(payload.visitDate)} الساعة ${formatTime(payload.visitTime)}`
+            : "";
+        showToast(
+          (isNew ? "تم حفظ العميل للفريق كله" : "تم تحديث بيانات العميل") + visitMsg
+        );
+        resetForm(true);
+        customerName.focus();
+      } catch (err) {
+        console.error(err);
+        showToast("فشل الحفظ — تأكد من قواعد Firestore");
+        setupPanel.hidden = false;
+      }
+    },
+  );
+  saving = false;
+  if (!leadId.value) saveBtn.textContent = "حفظ العميل";
 });
 
 resetBtn.addEventListener("click", () => {
@@ -929,14 +951,21 @@ async function handleLeadAction(e) {
     if (!lead) return;
     const ok = confirm(`حذف العميل "${lead.customerName}" من سجل الفريق؟`);
     if (!ok) return;
-    try {
-      await removeLead(deleteId);
-      if (leadId.value === deleteId) resetForm(true);
-      showToast("تم حذف العميل من السجل المشترك");
-    } catch (err) {
-      console.error(err);
-      showToast("فشل الحذف");
-    }
+    const deleteBtn = e.target.closest("button") || e.target;
+    await withBusy(
+      deleteBtn,
+      async () => {
+        try {
+          await removeLead(deleteId);
+          if (leadId.value === deleteId) resetForm(true);
+          showToast("تم حذف العميل من السجل المشترك");
+        } catch (err) {
+          console.error(err);
+          showToast("فشل الحذف");
+        }
+      },
+      { loadingText: "جاري الحذف..." }
+    );
   }
 }
 
@@ -1161,8 +1190,12 @@ function exportXlsx() {
   showToast("تم تصدير Excel بالجداول");
 }
 
-exportCsvBtn.addEventListener("click", exportCsv);
-exportXlsxBtn.addEventListener("click", exportXlsx);
+exportCsvBtn.addEventListener("click", () =>
+  withBusy(exportCsvBtn, async () => exportCsv(), { loadingText: "جاري التصدير..." })
+);
+exportXlsxBtn.addEventListener("click", () =>
+  withBusy(exportXlsxBtn, async () => exportXlsx(), { loadingText: "جاري التصدير..." })
+);
 
 window.addEventListener("beforeinstallprompt", (e) => {
   e.preventDefault();
