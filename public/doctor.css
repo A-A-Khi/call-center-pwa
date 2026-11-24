@@ -739,6 +739,42 @@ body {
   color: var(--ink-soft);
 }
 
+.payment-status-line {
+  margin-top: 0.45rem !important;
+  font-weight: 700;
+  font-size: 0.86rem !important;
+}
+
+.payment-status-line.is-unpaid {
+  color: var(--rose);
+}
+
+.payment-status-line.is-partial {
+  color: #9a5b12;
+}
+
+.payment-status-line.is-paid {
+  color: var(--sea-deep);
+}
+
+.payment-panel {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+  padding: 0.85rem;
+  border-radius: 14px;
+  border: 1px solid rgba(196, 120, 40, 0.28);
+  background: linear-gradient(145deg, rgba(196, 120, 40, 0.1), rgba(255, 255, 255, 0.92));
+}
+
+.payment-panel[hidden] {
+  display: none;
+}
+
+.payment-panel .btn {
+  width: 100%;
+}
+
 .sync-line {
   margin-top: 0.55rem !important;
   font-weight: 700;

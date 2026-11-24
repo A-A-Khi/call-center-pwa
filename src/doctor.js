@@ -73,14 +73,25 @@ const followUpVisitTime = document.getElementById("followUpVisitTime");
 const followUpDetails = document.getElementById("followUpDetails");
 const completedSummary = document.getElementById("completedSummary");
 const completedSummaryText = document.getElementById("completedSummaryText");
+const paymentStatusLine = document.getElementById("paymentStatusLine");
 const syncStatusLine = document.getElementById("syncStatusLine");
 const retrySyncBtn = document.getElementById("retrySyncBtn");
+const paymentPanel = document.getElementById("paymentPanel");
+const paymentPanelHint = document.getElementById("paymentPanelHint");
+const savePaymentBtn = document.getElementById("savePaymentBtn");
+const shareInvoiceBtn = document.getElementById("shareInvoiceBtn");
 const doctorSearchInput = document.getElementById("doctorSearchInput");
 const doctorSearchResults = document.getElementById("doctorSearchResults");
 const statAwaiting = document.getElementById("statAwaiting");
 const statConfirmed = document.getElementById("statConfirmed");
 const statToday = document.getElementById("statToday");
 const statCompleted = document.getElementById("statCompleted");
+
+const INVOICE_BRAND = "Dentist On Call";
+const LOGO_URL = new URL(
+  `${import.meta.env.BASE_URL}icons/logo-official.png`,
+  window.location.origin
+).href;
 
 let appointments = [];
 let viewMode = "month";
@@ -315,15 +326,12 @@ function renderAgenda() {
     card.type = "button";
     card.className = `appt-card${status === "cancelled" ? " is-cancelled" : ""}`;
     card.style.animationDelay = `${index * 0.04}s`;
-    const money =
-      status === "completed" && appt.visit?.paidEgp != null
-        ? ` · مدفوع ${appt.visit.paidEgp} ج`
-        : "";
+    const money = completedMoneyLabel(appt, status);
     card.innerHTML = `
       <span class="appt-time">${formatTime(appt.visitTime)}</span>
       <span class="appt-body">
         <strong>${escapeHtml(appt.patientName || "بدون اسم")}</strong>
-        <p>${escapeHtml(appt.service || appt.phone || "—")}${money}</p>
+        <p>${escapeHtml(appt.visit?.serviceName || appt.service || appt.phone || "—")}${money}</p>
       </span>
       <span class="appt-status ${statusClass(appt)}">${statusLabel(appt)}</span>
     `;
@@ -396,10 +404,9 @@ function resetFollowUpFields() {
   if (followUpDetails) followUpDetails.value = "";
 }
 
-function readVisitFields() {
+function readInvoiceFields() {
   const serviceName = visitServiceName.value.trim();
   const costEgp = Number(visitCostEgp.value);
-  const paidEgp = Number(visitPaidEgp.value);
   const clinicalNotes = visitClinicalNotes.value.trim();
 
   if (!serviceName) {
@@ -412,18 +419,57 @@ function readVisitFields() {
     visitCostEgp.focus();
     return null;
   }
+
+  return { serviceName, costEgp, clinicalNotes };
+}
+
+function computePaymentStatus(costEgp, paidEgp) {
+  const cost = Number(costEgp) || 0;
+  const paid = Number(paidEgp) || 0;
+  if (paid <= 0) return "unpaid";
+  if (paid >= cost) return "paid";
+  return "partial";
+}
+
+function paymentStatusLabel(status) {
+  if (status === "paid") return "مدفوع بالكامل";
+  if (status === "partial") return "مدفوع جزئياً";
+  return "في انتظار الدفع";
+}
+
+function remainingBalance(costEgp, paidEgp) {
+  return Math.max(0, (Number(costEgp) || 0) - (Number(paidEgp) || 0));
+}
+
+function buildInvoiceNumber(appt) {
+  const datePart = String(appt.visitDate || todayISO()).replaceAll("-", "");
+  const idTail = String(appt.id || "xxxx").slice(-4).toUpperCase();
+  return `DOC-${datePart}-${idTail}`;
+}
+
+function completedMoneyLabel(appt, status) {
+  if (status !== "completed" || !appt.visit) return "";
+  const cost = Number(appt.visit.costEgp) || 0;
+  const paid = Number(appt.visit.paidEgp) || 0;
+  const remain = remainingBalance(cost, paid);
+  if (remain > 0) return ` · متبقي ${remain} ج`;
+  if (paid > 0) return ` · مدفوع ${paid} ج`;
+  return cost > 0 ? ` · فاتورة ${cost} ج` : "";
+}
+
+function readPaymentAmount(costEgp) {
+  const paidEgp = Number(visitPaidEgp.value);
   if (!Number.isFinite(paidEgp) || paidEgp < 0) {
-    showToast("أدخل المبلغ المدفوع");
+    showToast("أدخل مبلغ مدفوع صحيح");
     visitPaidEgp.focus();
     return null;
   }
   if (paidEgp > costEgp) {
-    showToast("المدفوع أكبر من التكلفة");
+    showToast("المدفوع أكبر من تكلفة الفاتورة");
     visitPaidEgp.focus();
     return null;
   }
-
-  return { serviceName, costEgp, paidEgp, clinicalNotes };
+  return paidEgp;
 }
 
 function searchNeedle(value) {
@@ -514,6 +560,38 @@ function setScheduleFieldsDisabled(disabled) {
   editDetails.disabled = disabled;
 }
 
+function fillCompletedSummary(appt) {
+  const v = appt.visit || {};
+  const cost = Number(v.costEgp) || 0;
+  const paid = Number(v.paidEgp) || 0;
+  const remain = remainingBalance(cost, paid);
+  const payStatus = v.paymentStatus || computePaymentStatus(cost, paid);
+
+  completedSummaryText.textContent = [
+    v.invoiceNumber || null,
+    v.serviceName || appt.service || "خدمة",
+    `الإجمالي ${cost} ج`,
+    `مدفوع ${paid} ج`,
+    remain > 0 ? `متبقي ${remain} ج` : null,
+    v.clinicalNotes || null,
+    appt.mainSite?.patientCode ? `كود ${appt.mainSite.patientCode}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  if (paymentStatusLine) {
+    paymentStatusLine.textContent = paymentStatusLabel(payStatus);
+    paymentStatusLine.className = `payment-status-line is-${payStatus}`;
+  }
+
+  if (paymentPanelHint) {
+    paymentPanelHint.textContent =
+      remain > 0
+        ? `المتبقي ${remain} ج — سجّل إجمالي المدفوع حتى الآن (كامل أو جزء)`
+        : "الفاتورة متسددة بالكامل — تقدر تعدّل المبلغ لو حصل خطأ";
+  }
+}
+
 function openDialog(appt) {
   const status = normalizeStatus(appt);
   editApptId.value = appt.id;
@@ -528,7 +606,7 @@ function openDialog(appt) {
 
   visitServiceName.value = appt.visit?.serviceName || appt.service || "";
   visitCostEgp.value = appt.visit?.costEgp ?? "";
-  visitPaidEgp.value = appt.visit?.paidEgp ?? "";
+  visitPaidEgp.value = appt.visit?.paidEgp ?? 0;
   visitClinicalNotes.value = appt.visit?.clinicalNotes || "";
   resetFollowUpFields();
 
@@ -538,6 +616,8 @@ function openDialog(appt) {
   confirmApptBtn.hidden = status !== "awaiting_doctor";
   completeVisitBtn.hidden = status !== "confirmed";
   saveVisitEditBtn.hidden = status !== "completed";
+  shareInvoiceBtn.hidden = status !== "completed";
+  if (paymentPanel) paymentPanel.hidden = status !== "completed";
   visitCompletePanel.hidden = !(status === "confirmed" || status === "completed");
   if (followUpBlock) followUpBlock.hidden = status !== "confirmed";
   saveApptBtn.hidden = scheduleLocked;
@@ -545,13 +625,13 @@ function openDialog(appt) {
   saveApptBtn.textContent = "حفظ التعديل";
 
   if (status === "confirmed") {
-    visitCompleteTitle.textContent = "تسجيل الزيارة بعد الكشف";
+    visitCompleteTitle.textContent = "إصدار فاتورة بعد الكشف";
     visitCompleteHint.textContent =
-      "الخدمة المقدمة والمبلغ المدفوع — بعد الحفظ جاهزة للمزامنة مع الموقع الرئيسي";
+      "الخدمة والتكلفة لإصدار فاتورة Dentist On Call — الدفع يتسجل بعدين";
   } else if (status === "completed") {
-    visitCompleteTitle.textContent = "تعديل بيانات الزيارة";
+    visitCompleteTitle.textContent = "تعديل بيانات الفاتورة";
     visitCompleteHint.textContent =
-      "تقدر تعدّل الخدمة أو المبالغ أو الملاحظات ثم تحفظ التعديل";
+      "تقدر تعدّل الخدمة أو التكلفة أو الملاحظات ثم تحفظ — الدفع من القسم التالي";
   }
 
   retrySyncBtn.hidden = true;
@@ -559,16 +639,7 @@ function openDialog(appt) {
   if (status === "completed") {
     dialogTitle.textContent = "زيارة مكتملة";
     completedSummary.hidden = false;
-    const v = appt.visit || {};
-    completedSummaryText.textContent = [
-      v.serviceName || appt.service || "خدمة",
-      v.costEgp != null ? `تكلفة ${v.costEgp} ج` : null,
-      v.paidEgp != null ? `مدفوع ${v.paidEgp} ج` : null,
-      v.clinicalNotes || null,
-      appt.mainSite?.patientCode ? `كود ${appt.mainSite.patientCode}` : null,
-    ]
-      .filter(Boolean)
-      .join(" · ");
+    fillCompletedSummary(appt);
     const syncStatus = appt.syncStatus || "pending";
     syncStatusLine.textContent = syncStatusLabel(syncStatus);
     syncStatusLine.className = `sync-line is-${syncStatus}`;
@@ -643,6 +714,261 @@ function syncStatusLabel(syncStatus) {
   if (syncStatus === "failed") return "فشلت المزامنة — يمكن إعادة المحاولة";
   if (syncStatus === "pending") return "جاري/بانتظار المزامنة مع الموقع الرئيسي";
   return "لم تتم المزامنة بعد";
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("logo load failed"));
+    img.src = src;
+  });
+}
+
+function roundRectPath(ctx, x, y, w, h, r) {
+  const radius = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.arcTo(x + w, y, x + w, y + h, radius);
+  ctx.arcTo(x + w, y + h, x, y + h, radius);
+  ctx.arcTo(x, y + h, x, y, radius);
+  ctx.arcTo(x, y, x + w, y, radius);
+  ctx.closePath();
+}
+
+async function renderInvoiceCanvas(appt) {
+  const visit = appt.visit || {};
+  const width = 720;
+  const height = 980;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+
+  ctx.fillStyle = "#f4f7fb";
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.fillStyle = "#0f766e";
+  ctx.fillRect(0, 0, width, 150);
+
+  let logo = null;
+  try {
+    logo = await loadImage(LOGO_URL);
+  } catch {
+    logo = null;
+  }
+  if (logo) {
+    const size = 72;
+    ctx.drawImage(logo, 48, 39, size, size);
+  }
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "700 34px IBM Plex Sans Arabic, Arial, sans-serif";
+  ctx.textAlign = "right";
+  ctx.fillText(INVOICE_BRAND, width - 48, 70);
+  ctx.font = "500 20px IBM Plex Sans Arabic, Arial, sans-serif";
+  ctx.fillText("فاتورة خدمة طبية", width - 48, 108);
+
+  roundRectPath(ctx, 36, 180, width - 72, 720, 24);
+  ctx.fillStyle = "#ffffff";
+  ctx.fill();
+  ctx.strokeStyle = "rgba(15, 118, 110, 0.18)";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  const invoiceNumber = visit.invoiceNumber || buildInvoiceNumber(appt);
+  const cost = Number(visit.costEgp) || 0;
+  const paid = Number(visit.paidEgp) || 0;
+  const remain = remainingBalance(cost, paid);
+  const payStatus = visit.paymentStatus || computePaymentStatus(cost, paid);
+
+  ctx.textAlign = "right";
+  ctx.fillStyle = "#0f172a";
+  ctx.font = "700 26px IBM Plex Sans Arabic, Arial, sans-serif";
+  ctx.fillText("بيانات الفاتورة", width - 64, 230);
+
+  ctx.font = "500 20px IBM Plex Sans Arabic, Arial, sans-serif";
+  ctx.fillStyle = "#475569";
+  const metaLines = [
+    [`رقم الفاتورة`, invoiceNumber],
+    [`اسم المريض`, appt.patientName || "—"],
+    [`الموبايل`, appt.phone || "—"],
+    [`تاريخ الزيارة`, formatDateLabel(appt.visitDate)],
+    [`الساعة`, formatTime(appt.visitTime)],
+  ];
+  let y = 280;
+  metaLines.forEach(([label, value]) => {
+    ctx.fillStyle = "#64748b";
+    ctx.fillText(label, width - 64, y);
+    ctx.fillStyle = "#0f172a";
+    ctx.font = "600 20px IBM Plex Sans Arabic, Arial, sans-serif";
+    ctx.fillText(String(value), width - 250, y);
+    ctx.font = "500 20px IBM Plex Sans Arabic, Arial, sans-serif";
+    y += 42;
+  });
+
+  y += 20;
+  ctx.strokeStyle = "rgba(15, 118, 110, 0.2)";
+  ctx.beginPath();
+  ctx.moveTo(64, y);
+  ctx.lineTo(width - 64, y);
+  ctx.stroke();
+
+  y += 50;
+  ctx.fillStyle = "#0f766e";
+  ctx.font = "700 22px IBM Plex Sans Arabic, Arial, sans-serif";
+  ctx.fillText("البند", width - 64, y);
+  ctx.fillText("المبلغ", 160, y);
+
+  y += 46;
+  ctx.fillStyle = "#0f172a";
+  ctx.font = "600 22px IBM Plex Sans Arabic, Arial, sans-serif";
+  const serviceName = visit.serviceName || appt.service || "خدمة";
+  ctx.fillText(serviceName, width - 64, y);
+  ctx.fillText(`${cost} ج.م`, 160, y);
+
+  y += 50;
+  ctx.strokeStyle = "rgba(15, 118, 110, 0.2)";
+  ctx.beginPath();
+  ctx.moveTo(64, y);
+  ctx.lineTo(width - 64, y);
+  ctx.stroke();
+
+  y += 55;
+  ctx.font = "700 28px IBM Plex Sans Arabic, Arial, sans-serif";
+  ctx.fillStyle = "#0f766e";
+  ctx.fillText("الإجمالي", width - 64, y);
+  ctx.fillText(`${cost} ج.م`, 180, y);
+
+  y += 50;
+  ctx.font = "600 22px IBM Plex Sans Arabic, Arial, sans-serif";
+  ctx.fillStyle = "#334155";
+  ctx.fillText("المدفوع", width - 64, y);
+  ctx.fillText(`${paid} ج.م`, 180, y);
+
+  y += 42;
+  ctx.fillText("المتبقي", width - 64, y);
+  ctx.fillText(`${remain} ج.م`, 180, y);
+
+  y += 60;
+  roundRectPath(ctx, 64, y - 34, width - 128, 56, 14);
+  if (payStatus === "paid") ctx.fillStyle = "rgba(15, 118, 110, 0.14)";
+  else if (payStatus === "partial") ctx.fillStyle = "rgba(196, 120, 40, 0.16)";
+  else ctx.fillStyle = "rgba(196, 92, 92, 0.12)";
+  ctx.fill();
+  ctx.fillStyle =
+    payStatus === "paid" ? "#0f766e" : payStatus === "partial" ? "#9a5b12" : "#b45353";
+  ctx.font = "700 22px IBM Plex Sans Arabic, Arial, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(paymentStatusLabel(payStatus), width / 2, y);
+
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#64748b";
+  ctx.font = "500 16px IBM Plex Sans Arabic, Arial, sans-serif";
+  ctx.fillText("شكراً لثقتكم في Dentist On Call", width / 2, height - 48);
+
+  return canvas;
+}
+
+function canvasToBlob(canvas) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("invoice blob failed"));
+    }, "image/png");
+  });
+}
+
+function normalizeWhatsAppPhone(phone) {
+  const digits = String(phone || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("20")) return digits;
+  if (digits.startsWith("0")) return `20${digits.slice(1)}`;
+  return digits;
+}
+
+function invoiceShareText(appt) {
+  const visit = appt.visit || {};
+  const cost = Number(visit.costEgp) || 0;
+  const remain = remainingBalance(cost, visit.paidEgp);
+  const lines = [
+    `فاتورة ${INVOICE_BRAND}`,
+    `رقم: ${visit.invoiceNumber || buildInvoiceNumber(appt)}`,
+    `المريض: ${appt.patientName || "—"}`,
+    `الخدمة: ${visit.serviceName || appt.service || "—"}`,
+    `الإجمالي: ${cost} ج.م`,
+  ];
+  if (remain > 0) lines.push(`المتبقي: ${remain} ج.م`);
+  else lines.push("الحالة: مدفوع بالكامل");
+  return lines.join("\n");
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+async function shareInvoiceForAppointment(appt) {
+  if (!appt?.visit) {
+    showToast("لا توجد فاتورة لهذه الزيارة");
+    return;
+  }
+  if (shareInvoiceBtn) shareInvoiceBtn.disabled = true;
+  try {
+    const canvas = await renderInvoiceCanvas(appt);
+    const blob = await canvasToBlob(canvas);
+    const filename = `${appt.visit.invoiceNumber || "invoice"}.png`;
+    const file = new File([blob], filename, { type: "image/png" });
+    const text = invoiceShareText(appt);
+
+    if (navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: `فاتورة ${INVOICE_BRAND}`,
+          text,
+        });
+        showToast("تم فتح المشاركة — ابعت الفاتورة للمريض");
+      } catch (shareErr) {
+        if (shareErr?.name !== "AbortError") throw shareErr;
+      }
+      return;
+    }
+
+    downloadBlob(blob, filename);
+    const waPhone = normalizeWhatsAppPhone(appt.phone);
+    if (waPhone) {
+      window.open(
+        `https://wa.me/${waPhone}?text=${encodeURIComponent(`${text}\n\n(صورة الفاتورة اتحمّلت على الجهاز — ارفقها من المعرض)`)}`,
+        "_blank",
+        "noopener"
+      );
+      showToast("اتحمّلت صورة الفاتورة — وارفقها من واتساب");
+    } else {
+      showToast("اتحمّلت صورة الفاتورة على الجهاز");
+    }
+  } finally {
+    if (shareInvoiceBtn) shareInvoiceBtn.disabled = false;
+  }
+}
+
+async function shareCurrentInvoice() {
+  const id = editApptId.value;
+  const appt = appointments.find((a) => a.id === id);
+  if (!appt || normalizeStatus(appt) !== "completed") return;
+  try {
+    await shareInvoiceForAppointment(appt);
+  } catch (err) {
+    if (err?.name === "AbortError") return;
+    console.error(err);
+    showToast("تعذر مشاركة الفاتورة");
+  }
 }
 
 function buildMainSitePayload(appt) {
@@ -847,9 +1173,10 @@ async function completeVisit() {
   const appt = appointments.find((a) => a.id === id);
   if (!appt || normalizeStatus(appt) !== "confirmed") return;
 
-  const fields = readVisitFields();
+  const fields = readInvoiceFields();
   if (!fields) return;
-  const { serviceName, costEgp, paidEgp, clinicalNotes } = fields;
+  const { serviceName, costEgp, clinicalNotes } = fields;
+  const paidEgp = 0;
 
   const wantsFollowUp = getFollowUpBooked();
   let followUpDate = "";
@@ -867,6 +1194,10 @@ async function completeVisit() {
   }
 
   const updatedAt = new Date().toISOString();
+  const invoiceNumber = buildInvoiceNumber({
+    ...appt,
+    visitDate: editVisitDate.value || appt.visitDate,
+  });
   completeVisitBtn.disabled = true;
   try {
     const visitPayload = {
@@ -876,6 +1207,9 @@ async function completeVisit() {
       clinicalNotes,
       completedAt: updatedAt,
       completedBy: "doctor",
+      invoiceIssuedAt: updatedAt,
+      invoiceNumber,
+      paymentStatus: "unpaid",
     };
     await setDoc(
       doc(db, APPOINTMENTS, id),
@@ -917,27 +1251,36 @@ async function completeVisit() {
 
     try {
       const result = await syncAppointmentToMainSite(fresh);
-      apptDialog.close();
       const code = result?.patientCode ? ` · ${result.patientCode}` : "";
       const followMsg = followUpCreated
         ? ` · ومتابعة ${formatDateLabel(followUpDate)}`
         : "";
-      showToast(`تم تسجيل الزيارة ومزامنتها مع الموقع الرئيسي${code}${followMsg}`);
+      showToast(`تم إصدار الفاتورة ومزامنتها${code}${followMsg}`);
       notifyDoctor(
-        followUpCreated ? "زيارة مكتملة + متابعة" : "زيارة مكتملة ومتزامنة",
-        `${appt.patientName || "مريض"} · ${serviceName} · ${paidEgp} ج`
+        followUpCreated ? "فاتورة + متابعة" : "فاتورة جاهزة للمشاركة",
+        `${appt.patientName || "مريض"} · ${serviceName} · ${costEgp} ج`
       );
+      openDialog({ ...fresh, syncStatus: "synced", mainSite: {
+        ...(appt.mainSite || {}),
+        patientCode: result?.patientCode || appt.mainSite?.patientCode || null,
+      }});
+      try {
+        await shareInvoiceForAppointment(fresh);
+      } catch (shareErr) {
+        console.warn(shareErr);
+      }
     } catch (syncErr) {
       console.error(syncErr);
       await markSyncFailed(id, syncErr.message || syncErr);
       const followMsg = followUpCreated ? " وحجز المتابعة اتعمل" : "";
       showToast(
-        `الزيارة اتسجلت محليًا${followMsg} لكن المزامنة فشلت — افتح الموعد وأعد المحاولة`
+        `الفاتورة اتسجّلت محليًا${followMsg} لكن المزامنة فشلت — تقدر تشاركها وتعدّل الدفع`
       );
+      openDialog({ ...fresh, syncStatus: "failed", syncError: String(syncErr.message || syncErr) });
     }
   } catch (err) {
     console.error(err);
-    showToast("فشل تسجيل الزيارة");
+    showToast("فشل إصدار الفاتورة");
   } finally {
     completeVisitBtn.disabled = false;
   }
@@ -948,9 +1291,15 @@ async function saveCompletedVisitEdit() {
   const appt = appointments.find((a) => a.id === id);
   if (!appt || normalizeStatus(appt) !== "completed") return;
 
-  const fields = readVisitFields();
+  const fields = readInvoiceFields();
   if (!fields) return;
-  const { serviceName, costEgp, paidEgp, clinicalNotes } = fields;
+  const { serviceName, costEgp, clinicalNotes } = fields;
+  const paidEgp = Number(appt.visit?.paidEgp) || 0;
+  if (paidEgp > costEgp) {
+    showToast("التكلفة أقل من المدفوع المسجّل — عدّل الدفعة أولاً أو زوّد التكلفة");
+    visitCostEgp.focus();
+    return;
+  }
 
   const updatedAt = new Date().toISOString();
   saveVisitEditBtn.disabled = true;
@@ -961,6 +1310,9 @@ async function saveCompletedVisitEdit() {
       costEgp,
       paidEgp,
       clinicalNotes,
+      invoiceNumber: appt.visit?.invoiceNumber || buildInvoiceNumber(appt),
+      invoiceIssuedAt: appt.visit?.invoiceIssuedAt || updatedAt,
+      paymentStatus: computePaymentStatus(costEgp, paidEgp),
       updatedAt,
       updatedBy: "doctor",
     };
@@ -989,19 +1341,86 @@ async function saveCompletedVisitEdit() {
 
     try {
       const result = await syncAppointmentToMainSite(fresh);
-      apptDialog.close();
       const code = result?.patientCode ? ` · ${result.patientCode}` : "";
-      showToast(`تم تعديل الزيارة ومزامنتها${code}`);
+      showToast(`تم تعديل الفاتورة ومزامنتها${code}`);
+      openDialog({
+        ...fresh,
+        syncStatus: "synced",
+        mainSite: {
+          ...(appt.mainSite || {}),
+          patientCode: result?.patientCode || appt.mainSite?.patientCode || null,
+        },
+      });
     } catch (syncErr) {
       console.error(syncErr);
       await markSyncFailed(id, syncErr.message || syncErr);
       showToast("التعديل اتحفظ محليًا لكن المزامنة فشلت — أعد المحاولة");
+      openDialog({ ...fresh, syncStatus: "failed", syncError: String(syncErr.message || syncErr) });
     }
   } catch (err) {
     console.error(err);
-    showToast("فشل حفظ تعديل الزيارة");
+    showToast("فشل حفظ تعديل الفاتورة");
   } finally {
     saveVisitEditBtn.disabled = false;
+  }
+}
+
+async function savePayment() {
+  const id = editApptId.value;
+  const appt = appointments.find((a) => a.id === id);
+  if (!appt || normalizeStatus(appt) !== "completed") return;
+
+  const costEgp = Number(appt.visit?.costEgp) || 0;
+  const paidEgp = readPaymentAmount(costEgp);
+  if (paidEgp == null) return;
+
+  const updatedAt = new Date().toISOString();
+  savePaymentBtn.disabled = true;
+  try {
+    const visitPayload = {
+      ...(appt.visit || {}),
+      paidEgp,
+      paymentStatus: computePaymentStatus(costEgp, paidEgp),
+      paymentUpdatedAt: updatedAt,
+      updatedAt,
+      updatedBy: "doctor",
+    };
+    await setDoc(
+      doc(db, APPOINTMENTS, id),
+      {
+        visit: visitPayload,
+        syncStatus: "pending",
+        syncError: "",
+        updatedAt,
+      },
+      { merge: true }
+    );
+    await syncLeadFromAppointment(appt, {
+      doctorStatus: "completed",
+      visitPaidEgp: paidEgp,
+      visitCostEgp: costEgp,
+    });
+
+    const fresh = { ...appt, status: "completed", visit: visitPayload };
+    try {
+      await syncAppointmentToMainSite(fresh);
+      showToast(
+        visitPayload.paymentStatus === "paid"
+          ? "تم تسجيل السداد بالكامل"
+          : `تم تسجيل دفعة ${paidEgp} ج · متبقي ${remainingBalance(costEgp, paidEgp)} ج`
+      );
+      openDialog({ ...fresh, syncStatus: "synced" });
+    } catch (syncErr) {
+      console.error(syncErr);
+      await markSyncFailed(id, syncErr.message || syncErr);
+      showToast("الدفعة اتحفظت محليًا لكن المزامنة فشلت");
+      openDialog({ ...fresh, syncStatus: "failed", syncError: String(syncErr.message || syncErr) });
+    }
+  } catch (err) {
+    console.error(err);
+    showToast("فشل حفظ الدفعة");
+  } finally {
+    savePaymentBtn.disabled = false;
   }
 }
 
@@ -1412,18 +1831,24 @@ function bindUi() {
     });
   }
 
+  if (savePaymentBtn) {
+    savePaymentBtn.addEventListener("click", () => {
+      savePayment();
+    });
+  }
+
+  if (shareInvoiceBtn) {
+    shareInvoiceBtn.addEventListener("click", () => {
+      shareCurrentInvoice();
+    });
+  }
+
   retrySyncBtn.addEventListener("click", () => {
     retryMainSiteSync();
   });
 
   cancelApptBtn.addEventListener("click", () => {
     cancelAppointment();
-  });
-
-  visitCostEgp.addEventListener("change", () => {
-    if (visitPaidEgp.value === "" && visitCostEgp.value !== "") {
-      visitPaidEgp.value = visitCostEgp.value;
-    }
   });
 
   document.querySelectorAll('input[name="followUpBooked"]').forEach((radio) => {

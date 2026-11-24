@@ -157,7 +157,7 @@
         <section class="visit-complete-panel" id="visitCompletePanel" hidden>
           <div class="visit-complete-head">
             <strong id="visitCompleteTitle">تسجيل الزيارة بعد الكشف</strong>
-            <p id="visitCompleteHint">الخدمة المقدمة والمبلغ المدفوع — بعد الحفظ جاهزة للمزامنة مع الموقع الرئيسي</p>
+            <p id="visitCompleteHint">الخدمة والتكلفة لإصدار فاتورة Dentist On Call — الدفع يتسجل بعدين</p>
           </div>
           <label class="field">
             <span>الخدمة المقدمة</span>
@@ -170,16 +170,10 @@
               <option value="تنظيف جير"></option>
             </datalist>
           </label>
-          <div class="grid-2">
-            <label class="field">
-              <span>تكلفة الخدمة (جنيه)</span>
-              <input id="visitCostEgp" type="number" min="0" step="1" inputmode="numeric" placeholder="0" />
-            </label>
-            <label class="field">
-              <span>المبلغ المدفوع (جنيه)</span>
-              <input id="visitPaidEgp" type="number" min="0" step="1" inputmode="numeric" placeholder="0" />
-            </label>
-          </div>
+          <label class="field">
+            <span>تكلفة الخدمة (جنيه)</span>
+            <input id="visitCostEgp" type="number" min="0" step="1" inputmode="numeric" placeholder="0" />
+          </label>
           <label class="field">
             <span>تفاصيل الكشف / التشخيص</span>
             <textarea id="visitClinicalNotes" rows="3" placeholder="الشكوى، التشخيص، ملاحظات الطبيب..."></textarea>
@@ -221,15 +215,29 @@
         <div class="completed-summary" id="completedSummary" hidden>
           <strong>الزيارة مسجّلة</strong>
           <p id="completedSummaryText">—</p>
+          <p class="payment-status-line" id="paymentStatusLine">—</p>
           <p class="sync-line" id="syncStatusLine">—</p>
         </div>
+
+        <section class="payment-panel" id="paymentPanel" hidden>
+          <div class="visit-complete-head">
+            <strong>تسجيل دفعة</strong>
+            <p id="paymentPanelHint">بعد ما المريض يدفع — سجّل المبلغ الكلي المدفوع (كامل أو جزء)</p>
+          </div>
+          <label class="field">
+            <span>إجمالي المدفوع حتى الآن (جنيه)</span>
+            <input id="visitPaidEgp" type="number" min="0" step="1" inputmode="numeric" placeholder="0" />
+          </label>
+          <button type="button" class="btn btn-primary" id="savePaymentBtn">حفظ الدفعة</button>
+        </section>
       </div>
 
       <footer class="sheet-actions" id="sheetActions">
         <button type="button" class="btn btn-danger" id="cancelApptBtn">إلغاء الموعد</button>
         <button type="button" class="btn btn-ghost" id="saveApptBtn">حفظ التعديل</button>
+        <button type="button" class="btn btn-ghost" id="shareInvoiceBtn" hidden>مشاركة الفاتورة</button>
         <button type="button" class="btn btn-primary" id="confirmApptBtn" hidden>تأكيد الموعد</button>
-        <button type="button" class="btn btn-primary" id="completeVisitBtn" hidden>حفظ إنهاء الزيارة</button>
+        <button type="button" class="btn btn-primary" id="completeVisitBtn" hidden>إنهاء الزيارة وإصدار فاتورة</button>
         <button type="button" class="btn btn-primary" id="saveVisitEditBtn" hidden>حفظ تعديل الزيارة</button>
         <button type="button" class="btn btn-primary" id="retrySyncBtn" hidden>إعادة المزامنة للموقع</button>
       </footer>
