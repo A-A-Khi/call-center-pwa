@@ -37,6 +37,7 @@ html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  background-color: #111111;
 }
 
 body {
@@ -1098,10 +1099,10 @@ select:focus {
       max(0.75rem, env(safe-area-inset-right))
       calc(0.45rem + env(safe-area-inset-bottom))
       max(0.75rem, env(safe-area-inset-left));
-    background: rgba(255, 255, 255, 0.94);
-    border-top: 1px solid var(--line);
-    backdrop-filter: blur(14px);
-    box-shadow: 0 -8px 24px rgba(17, 17, 17, 0.06);
+    background: #111111;
+    border-top: 1px solid rgba(201, 162, 39, 0.35);
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.2);
+    color: #fff;
   }
 
   .mobile-nav-btn {
@@ -1114,7 +1115,7 @@ select:focus {
     border: none;
     border-radius: 14px;
     background: transparent;
-    color: var(--muted);
+    color: rgba(255, 255, 255, 0.62);
     font: inherit;
     font-size: 0.78rem;
     font-weight: 800;
@@ -1124,8 +1125,8 @@ select:focus {
   }
 
   .mobile-nav-btn.active {
-    background: var(--teal-soft);
-    color: var(--teal-deep);
+    background: rgba(201, 162, 39, 0.18);
+    color: #f5edd4;
   }
 
   .mobile-nav-icon {
@@ -1142,8 +1143,8 @@ select:focus {
     height: 1.15rem;
     padding: 0 0.25rem;
     border-radius: 999px;
-    background: var(--teal);
-    color: #fff;
+    background: var(--gold);
+    color: #111;
     font-size: 0.68rem;
     font-weight: 800;
     display: inline-flex;

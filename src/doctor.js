@@ -773,11 +773,18 @@ async function renderInvoiceCanvas(appt) {
   canvas.height = height;
   const ctx = canvas.getContext("2d");
 
-  ctx.fillStyle = "#f4f7fb";
+  const ink = "#111111";
+  const gold = "#c9a227";
+  const muted = "#6b6b66";
+  const soft = "#f7f7f5";
+
+  ctx.fillStyle = soft;
   ctx.fillRect(0, 0, width, height);
 
-  ctx.fillStyle = "#0f766e";
+  ctx.fillStyle = "#000000";
   ctx.fillRect(0, 0, width, 150);
+  ctx.fillStyle = gold;
+  ctx.fillRect(0, 150, width, 3);
 
   let logo = null;
   try {
@@ -794,14 +801,15 @@ async function renderInvoiceCanvas(appt) {
   ctx.font = "700 34px IBM Plex Sans Arabic, Arial, sans-serif";
   ctx.textAlign = "right";
   ctx.fillText(INVOICE_BRAND, width - 48, 70);
+  ctx.fillStyle = gold;
   ctx.font = "500 20px IBM Plex Sans Arabic, Arial, sans-serif";
   ctx.fillText("فاتورة خدمة طبية", width - 48, 108);
 
-  roundRectPath(ctx, 36, 180, width - 72, 720, 24);
+  roundRectPath(ctx, 36, 180, width - 72, 720, 20);
   ctx.fillStyle = "#ffffff";
   ctx.fill();
-  ctx.strokeStyle = "rgba(15, 118, 110, 0.18)";
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = "rgba(17, 17, 17, 0.1)";
+  ctx.lineWidth = 1.5;
   ctx.stroke();
 
   const invoiceNumber = visit.invoiceNumber || buildInvoiceNumber(appt);
@@ -811,12 +819,11 @@ async function renderInvoiceCanvas(appt) {
   const payStatus = visit.paymentStatus || computePaymentStatus(cost, paid);
 
   ctx.textAlign = "right";
-  ctx.fillStyle = "#0f172a";
+  ctx.fillStyle = ink;
   ctx.font = "700 26px IBM Plex Sans Arabic, Arial, sans-serif";
   ctx.fillText("بيانات الفاتورة", width - 64, 230);
 
   ctx.font = "500 20px IBM Plex Sans Arabic, Arial, sans-serif";
-  ctx.fillStyle = "#475569";
   const metaLines = [
     [`رقم الفاتورة`, invoiceNumber],
     [`اسم المريض`, appt.patientName || "—"],
@@ -826,9 +833,9 @@ async function renderInvoiceCanvas(appt) {
   ];
   let y = 280;
   metaLines.forEach(([label, value]) => {
-    ctx.fillStyle = "#64748b";
+    ctx.fillStyle = muted;
     ctx.fillText(label, width - 64, y);
-    ctx.fillStyle = "#0f172a";
+    ctx.fillStyle = ink;
     ctx.font = "600 20px IBM Plex Sans Arabic, Arial, sans-serif";
     ctx.fillText(String(value), width - 250, y);
     ctx.font = "500 20px IBM Plex Sans Arabic, Arial, sans-serif";
@@ -836,27 +843,27 @@ async function renderInvoiceCanvas(appt) {
   });
 
   y += 20;
-  ctx.strokeStyle = "rgba(15, 118, 110, 0.2)";
+  ctx.strokeStyle = "rgba(201, 162, 39, 0.45)";
   ctx.beginPath();
   ctx.moveTo(64, y);
   ctx.lineTo(width - 64, y);
   ctx.stroke();
 
   y += 50;
-  ctx.fillStyle = "#0f766e";
+  ctx.fillStyle = gold;
   ctx.font = "700 22px IBM Plex Sans Arabic, Arial, sans-serif";
   ctx.fillText("البند", width - 64, y);
   ctx.fillText("المبلغ", 160, y);
 
   y += 46;
-  ctx.fillStyle = "#0f172a";
+  ctx.fillStyle = ink;
   ctx.font = "600 22px IBM Plex Sans Arabic, Arial, sans-serif";
   const serviceName = visit.serviceName || appt.service || "خدمة";
   ctx.fillText(serviceName, width - 64, y);
   ctx.fillText(`${cost} ج.م`, 160, y);
 
   y += 50;
-  ctx.strokeStyle = "rgba(15, 118, 110, 0.2)";
+  ctx.strokeStyle = "rgba(17, 17, 17, 0.12)";
   ctx.beginPath();
   ctx.moveTo(64, y);
   ctx.lineTo(width - 64, y);
@@ -864,34 +871,38 @@ async function renderInvoiceCanvas(appt) {
 
   y += 55;
   ctx.font = "700 28px IBM Plex Sans Arabic, Arial, sans-serif";
-  ctx.fillStyle = "#0f766e";
+  ctx.fillStyle = ink;
   ctx.fillText("الإجمالي", width - 64, y);
+  ctx.fillStyle = gold;
   ctx.fillText(`${cost} ج.م`, 180, y);
 
   y += 50;
   ctx.font = "600 22px IBM Plex Sans Arabic, Arial, sans-serif";
-  ctx.fillStyle = "#334155";
+  ctx.fillStyle = muted;
   ctx.fillText("المدفوع", width - 64, y);
+  ctx.fillStyle = ink;
   ctx.fillText(`${paid} ج.م`, 180, y);
 
   y += 42;
+  ctx.fillStyle = muted;
   ctx.fillText("المتبقي", width - 64, y);
+  ctx.fillStyle = ink;
   ctx.fillText(`${remain} ج.م`, 180, y);
 
   y += 60;
-  roundRectPath(ctx, 64, y - 34, width - 128, 56, 14);
-  if (payStatus === "paid") ctx.fillStyle = "rgba(15, 118, 110, 0.14)";
-  else if (payStatus === "partial") ctx.fillStyle = "rgba(196, 120, 40, 0.16)";
+  roundRectPath(ctx, 64, y - 34, width - 128, 56, 12);
+  if (payStatus === "paid") ctx.fillStyle = "rgba(201, 162, 39, 0.16)";
+  else if (payStatus === "partial") ctx.fillStyle = "rgba(201, 162, 39, 0.1)";
   else ctx.fillStyle = "rgba(196, 92, 92, 0.12)";
   ctx.fill();
   ctx.fillStyle =
-    payStatus === "paid" ? "#0f766e" : payStatus === "partial" ? "#9a5b12" : "#b45353";
+    payStatus === "paid" ? ink : payStatus === "partial" ? "#7a6210" : "#b45353";
   ctx.font = "700 22px IBM Plex Sans Arabic, Arial, sans-serif";
   ctx.textAlign = "center";
   ctx.fillText(paymentStatusLabel(payStatus), width / 2, y);
 
   ctx.textAlign = "center";
-  ctx.fillStyle = "#64748b";
+  ctx.fillStyle = muted;
   ctx.font = "500 16px IBM Plex Sans Arabic, Arial, sans-serif";
   ctx.fillText("شكراً لثقتكم في Dentist On Call", width / 2, height - 48);
 
