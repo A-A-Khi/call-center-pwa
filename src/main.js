@@ -710,23 +710,47 @@ async function syncAppointment(leadDocId, payload) {
   const apptRef = doc(db, APPOINTMENTS, leadDocId);
   const booked = payload.booked === "yes";
 
+  let existingData = null;
+  try {
+    const existing = await getDoc(apptRef);
+    if (existing.exists()) existingData = existing.data();
+  } catch (err) {
+    console.warn("appointment status read failed", err);
+  }
+
   if (!booked || !payload.visitDate || !payload.visitTime) {
+    // لا نمسح زيارة مكتملة من سجل الدكتور
+    if (existingData?.status === "completed") return;
     await deleteDoc(apptRef);
     return;
   }
 
-  // لا نرجّع حالة الموعد لو الدكتور أكّده أو خلّص الكشف
-  let status = "awaiting_doctor";
-  try {
-    const existing = await getDoc(apptRef);
-    if (existing.exists()) {
-      const prev = existing.data()?.status;
-      if (prev === "confirmed" || prev === "completed") status = prev;
-      else if (prev === "cancelled") status = "awaiting_doctor";
-    }
-  } catch (err) {
-    console.warn("appointment status read failed", err);
+  // لو الزيارة على نفس الـ lead مكتملة، اعمل موعد جديد بدل overwrite
+  if (existingData?.status === "completed") {
+    await addDoc(collection(db, APPOINTMENTS), {
+      leadId: leadDocId,
+      patientName: payload.customerName,
+      phone: payload.phone,
+      city: payload.city || "",
+      service: payload.service || "",
+      visitDate: payload.visitDate,
+      visitTime: payload.visitTime,
+      status: "awaiting_doctor",
+      agentName: payload.agentName || "",
+      details: payload.details || "",
+      source: "call_center",
+      parentAppointmentId: leadDocId,
+      createdAt: payload.createdAt || payload.updatedAt,
+      updatedAt: payload.updatedAt,
+    });
+    return;
   }
+
+  // لا نرجّع حالة الموعد لو الدكتور أكّده
+  let status = "awaiting_doctor";
+  const prev = existingData?.status;
+  if (prev === "confirmed") status = prev;
+  else if (prev === "cancelled") status = "awaiting_doctor";
 
   await setDoc(
     apptRef,

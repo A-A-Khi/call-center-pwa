@@ -1,4 +1,5 @@
 import {
+  addDoc,
   collection,
   doc,
   onSnapshot,
@@ -57,15 +58,25 @@ const saveApptBtn = document.getElementById("saveApptBtn");
 const cancelApptBtn = document.getElementById("cancelApptBtn");
 const confirmApptBtn = document.getElementById("confirmApptBtn");
 const completeVisitBtn = document.getElementById("completeVisitBtn");
+const saveVisitEditBtn = document.getElementById("saveVisitEditBtn");
 const visitCompletePanel = document.getElementById("visitCompletePanel");
+const visitCompleteTitle = document.getElementById("visitCompleteTitle");
+const visitCompleteHint = document.getElementById("visitCompleteHint");
 const visitServiceName = document.getElementById("visitServiceName");
 const visitCostEgp = document.getElementById("visitCostEgp");
 const visitPaidEgp = document.getElementById("visitPaidEgp");
 const visitClinicalNotes = document.getElementById("visitClinicalNotes");
+const followUpBlock = document.getElementById("followUpBlock");
+const followUpSlotPanel = document.getElementById("followUpSlotPanel");
+const followUpVisitDate = document.getElementById("followUpVisitDate");
+const followUpVisitTime = document.getElementById("followUpVisitTime");
+const followUpDetails = document.getElementById("followUpDetails");
 const completedSummary = document.getElementById("completedSummary");
 const completedSummaryText = document.getElementById("completedSummaryText");
 const syncStatusLine = document.getElementById("syncStatusLine");
 const retrySyncBtn = document.getElementById("retrySyncBtn");
+const doctorSearchInput = document.getElementById("doctorSearchInput");
+const doctorSearchResults = document.getElementById("doctorSearchResults");
 const statAwaiting = document.getElementById("statAwaiting");
 const statConfirmed = document.getElementById("statConfirmed");
 const statToday = document.getElementById("statToday");
@@ -356,6 +367,136 @@ function renderAll() {
   renderCalendar();
   renderAgenda();
   renderStats();
+  renderSearchResults();
+}
+
+function getLeadId(appt) {
+  return appt?.leadId || appt?.id || "";
+}
+
+function getFollowUpBooked() {
+  const selected = document.querySelector('input[name="followUpBooked"]:checked');
+  return selected?.value === "yes";
+}
+
+function setFollowUpBooked(value) {
+  const radios = document.querySelectorAll('input[name="followUpBooked"]');
+  radios.forEach((radio) => {
+    radio.checked = radio.value === value;
+  });
+  if (followUpSlotPanel) {
+    followUpSlotPanel.hidden = value !== "yes";
+  }
+}
+
+function resetFollowUpFields() {
+  setFollowUpBooked("no");
+  if (followUpVisitDate) followUpVisitDate.value = "";
+  if (followUpVisitTime) followUpVisitTime.value = "";
+  if (followUpDetails) followUpDetails.value = "";
+}
+
+function readVisitFields() {
+  const serviceName = visitServiceName.value.trim();
+  const costEgp = Number(visitCostEgp.value);
+  const paidEgp = Number(visitPaidEgp.value);
+  const clinicalNotes = visitClinicalNotes.value.trim();
+
+  if (!serviceName) {
+    showToast("اكتب الخدمة المقدمة");
+    visitServiceName.focus();
+    return null;
+  }
+  if (!Number.isFinite(costEgp) || costEgp < 0) {
+    showToast("أدخل تكلفة صحيحة");
+    visitCostEgp.focus();
+    return null;
+  }
+  if (!Number.isFinite(paidEgp) || paidEgp < 0) {
+    showToast("أدخل المبلغ المدفوع");
+    visitPaidEgp.focus();
+    return null;
+  }
+  if (paidEgp > costEgp) {
+    showToast("المدفوع أكبر من التكلفة");
+    visitPaidEgp.focus();
+    return null;
+  }
+
+  return { serviceName, costEgp, paidEgp, clinicalNotes };
+}
+
+function searchNeedle(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function appointmentMatchesQuery(appt, query) {
+  if (!query) return false;
+  const haystack = [
+    appt.patientName,
+    appt.phone,
+    appt.service,
+    appt.city,
+    appt.visit?.serviceName,
+    appt.visit?.clinicalNotes,
+    appt.details,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return haystack.includes(query);
+}
+
+function renderSearchResults() {
+  if (!doctorSearchInput || !doctorSearchResults) return;
+  const query = searchNeedle(doctorSearchInput.value);
+  if (!query) {
+    doctorSearchResults.hidden = true;
+    doctorSearchResults.innerHTML = "";
+    return;
+  }
+
+  const includeCancelled = !hideCancelled.checked;
+  const matches = appointments
+    .filter((a) => includeCancelled || isActive(a))
+    .filter((a) => appointmentMatchesQuery(a, query))
+    .sort((a, b) => {
+      const dateCmp = String(b.visitDate || "").localeCompare(String(a.visitDate || ""));
+      if (dateCmp !== 0) return dateCmp;
+      return String(b.visitTime || "").localeCompare(String(a.visitTime || ""));
+    })
+    .slice(0, 40);
+
+  doctorSearchResults.hidden = false;
+  doctorSearchResults.innerHTML = "";
+
+  if (matches.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "search-empty";
+    empty.textContent = "لا توجد نتائج مطابقة";
+    doctorSearchResults.appendChild(empty);
+    return;
+  }
+
+  matches.forEach((appt) => {
+    const status = normalizeStatus(appt);
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `search-result${status === "cancelled" ? " is-cancelled" : ""}`;
+    btn.innerHTML = `
+      <span class="search-result-main">
+        <strong>${escapeHtml(appt.patientName || "بدون اسم")}</strong>
+        <p>${escapeHtml(formatDateLabel(appt.visitDate))} · ${escapeHtml(formatTime(appt.visitTime))}</p>
+        <p class="search-result-meta">${escapeHtml(appt.phone || "—")} · ${escapeHtml(appt.visit?.serviceName || appt.service || "—")}</p>
+      </span>
+      <span class="appt-status ${statusClass(appt)}">${statusLabel(appt)}</span>
+    `;
+    btn.addEventListener("click", () => openDialog(appt));
+    doctorSearchResults.appendChild(btn);
+  });
 }
 
 function escapeHtml(str) {
@@ -389,16 +530,29 @@ function openDialog(appt) {
   visitCostEgp.value = appt.visit?.costEgp ?? "";
   visitPaidEgp.value = appt.visit?.paidEgp ?? "";
   visitClinicalNotes.value = appt.visit?.clinicalNotes || "";
+  resetFollowUpFields();
 
-  const locked = status === "cancelled" || status === "completed";
-  setScheduleFieldsDisabled(locked);
+  const scheduleLocked = status === "cancelled" || status === "completed";
+  setScheduleFieldsDisabled(scheduleLocked);
 
   confirmApptBtn.hidden = status !== "awaiting_doctor";
   completeVisitBtn.hidden = status !== "confirmed";
-  visitCompletePanel.hidden = status !== "confirmed";
-  saveApptBtn.hidden = locked;
-  cancelApptBtn.hidden = locked;
+  saveVisitEditBtn.hidden = status !== "completed";
+  visitCompletePanel.hidden = !(status === "confirmed" || status === "completed");
+  if (followUpBlock) followUpBlock.hidden = status !== "confirmed";
+  saveApptBtn.hidden = scheduleLocked;
+  cancelApptBtn.hidden = scheduleLocked;
   saveApptBtn.textContent = "حفظ التعديل";
+
+  if (status === "confirmed") {
+    visitCompleteTitle.textContent = "تسجيل الزيارة بعد الكشف";
+    visitCompleteHint.textContent =
+      "الخدمة المقدمة والمبلغ المدفوع — بعد الحفظ جاهزة للمزامنة مع الموقع الرئيسي";
+  } else if (status === "completed") {
+    visitCompleteTitle.textContent = "تعديل بيانات الزيارة";
+    visitCompleteHint.textContent =
+      "تقدر تعدّل الخدمة أو المبالغ أو الملاحظات ثم تحفظ التعديل";
+  }
 
   retrySyncBtn.hidden = true;
 
@@ -436,8 +590,13 @@ function openDialog(appt) {
   apptDialog.showModal();
 }
 
-async function syncLeadFromAppointment(apptId, patch) {
-  const leadRef = doc(db, LEADS, apptId);
+async function syncLeadFromAppointment(apptOrId, patch) {
+  const leadId =
+    typeof apptOrId === "string"
+      ? apptOrId
+      : getLeadId(apptOrId);
+  if (!leadId) return;
+  const leadRef = doc(db, LEADS, leadId);
   try {
     await updateDoc(leadRef, {
       ...patch,
@@ -446,6 +605,37 @@ async function syncLeadFromAppointment(apptId, patch) {
   } catch (err) {
     console.warn("lead sync skipped", err);
   }
+}
+
+async function createFollowUpAppointment(appt, { visitDate, visitTime, details }) {
+  const updatedAt = new Date().toISOString();
+  const leadId = getLeadId(appt);
+  const payload = {
+    leadId,
+    patientName: appt.patientName || "",
+    phone: appt.phone || "",
+    city: appt.city || "",
+    service: appt.service || appt.visit?.serviceName || "",
+    visitDate,
+    visitTime,
+    status: "confirmed",
+    doctorConfirmedAt: updatedAt,
+    details: details || "حجز متابعة بعد الكشف",
+    source: "doctor_followup",
+    parentAppointmentId: appt.id,
+    agentName: appt.agentName || "",
+    createdAt: updatedAt,
+    updatedAt,
+  };
+  const ref = await addDoc(collection(db, APPOINTMENTS), payload);
+  await syncLeadFromAppointment(leadId || appt, {
+    booked: "yes",
+    visitDate,
+    visitTime,
+    doctorStatus: "confirmed",
+    details: details || appt.details || "",
+  });
+  return ref.id;
 }
 
 function syncStatusLabel(syncStatus) {
@@ -592,7 +782,7 @@ async function saveAppointmentEdits() {
       },
       { merge: true }
     );
-    await syncLeadFromAppointment(id, {
+    await syncLeadFromAppointment(appt, {
       visitDate,
       visitTime,
       booked: "yes",
@@ -635,7 +825,7 @@ async function confirmAppointment() {
       },
       { merge: true }
     );
-    await syncLeadFromAppointment(id, {
+    await syncLeadFromAppointment(appt, {
       visitDate,
       visitTime,
       booked: "yes",
@@ -657,30 +847,23 @@ async function completeVisit() {
   const appt = appointments.find((a) => a.id === id);
   if (!appt || normalizeStatus(appt) !== "confirmed") return;
 
-  const serviceName = visitServiceName.value.trim();
-  const costEgp = Number(visitCostEgp.value);
-  const paidEgp = Number(visitPaidEgp.value);
-  const clinicalNotes = visitClinicalNotes.value.trim();
+  const fields = readVisitFields();
+  if (!fields) return;
+  const { serviceName, costEgp, paidEgp, clinicalNotes } = fields;
 
-  if (!serviceName) {
-    showToast("اكتب الخدمة المقدمة");
-    visitServiceName.focus();
-    return;
-  }
-  if (!Number.isFinite(costEgp) || costEgp < 0) {
-    showToast("أدخل تكلفة صحيحة");
-    visitCostEgp.focus();
-    return;
-  }
-  if (!Number.isFinite(paidEgp) || paidEgp < 0) {
-    showToast("أدخل المبلغ المدفوع");
-    visitPaidEgp.focus();
-    return;
-  }
-  if (paidEgp > costEgp) {
-    showToast("المدفوع أكبر من التكلفة");
-    visitPaidEgp.focus();
-    return;
+  const wantsFollowUp = getFollowUpBooked();
+  let followUpDate = "";
+  let followUpTime = "";
+  let followUpNote = "";
+  if (wantsFollowUp) {
+    followUpDate = followUpVisitDate?.value || "";
+    followUpTime = followUpVisitTime?.value || "";
+    followUpNote = followUpDetails?.value.trim() || "";
+    if (!followUpDate || !followUpTime) {
+      showToast("حدد تاريخ وساعة الموعد الإضافي");
+      followUpVisitDate?.focus();
+      return;
+    }
   }
 
   const updatedAt = new Date().toISOString();
@@ -705,13 +888,23 @@ async function completeVisit() {
       },
       { merge: true }
     );
-    await syncLeadFromAppointment(id, {
+    await syncLeadFromAppointment(appt, {
       booked: "yes",
       doctorStatus: "completed",
       visitServiceName: serviceName,
       visitCostEgp: costEgp,
       visitPaidEgp: paidEgp,
     });
+
+    let followUpCreated = false;
+    if (wantsFollowUp) {
+      await createFollowUpAppointment(appt, {
+        visitDate: followUpDate,
+        visitTime: followUpTime,
+        details: followUpNote,
+      });
+      followUpCreated = true;
+    }
 
     const fresh = {
       ...appt,
@@ -726,22 +919,89 @@ async function completeVisit() {
       const result = await syncAppointmentToMainSite(fresh);
       apptDialog.close();
       const code = result?.patientCode ? ` · ${result.patientCode}` : "";
-      showToast(`تم تسجيل الزيارة ومزامنتها مع الموقع الرئيسي${code}`);
+      const followMsg = followUpCreated
+        ? ` · ومتابعة ${formatDateLabel(followUpDate)}`
+        : "";
+      showToast(`تم تسجيل الزيارة ومزامنتها مع الموقع الرئيسي${code}${followMsg}`);
       notifyDoctor(
-        "زيارة مكتملة ومتزامنة",
+        followUpCreated ? "زيارة مكتملة + متابعة" : "زيارة مكتملة ومتزامنة",
         `${appt.patientName || "مريض"} · ${serviceName} · ${paidEgp} ج`
       );
     } catch (syncErr) {
       console.error(syncErr);
       await markSyncFailed(id, syncErr.message || syncErr);
-      showToast("الزيارة اتسجلت محليًا لكن المزامنة فشلت — افتح الموعد وأعد المحاولة");
-      // keep dialog open with refreshed state via snapshot
+      const followMsg = followUpCreated ? " وحجز المتابعة اتعمل" : "";
+      showToast(
+        `الزيارة اتسجلت محليًا${followMsg} لكن المزامنة فشلت — افتح الموعد وأعد المحاولة`
+      );
     }
   } catch (err) {
     console.error(err);
     showToast("فشل تسجيل الزيارة");
   } finally {
     completeVisitBtn.disabled = false;
+  }
+}
+
+async function saveCompletedVisitEdit() {
+  const id = editApptId.value;
+  const appt = appointments.find((a) => a.id === id);
+  if (!appt || normalizeStatus(appt) !== "completed") return;
+
+  const fields = readVisitFields();
+  if (!fields) return;
+  const { serviceName, costEgp, paidEgp, clinicalNotes } = fields;
+
+  const updatedAt = new Date().toISOString();
+  saveVisitEditBtn.disabled = true;
+  try {
+    const visitPayload = {
+      ...(appt.visit || {}),
+      serviceName,
+      costEgp,
+      paidEgp,
+      clinicalNotes,
+      updatedAt,
+      updatedBy: "doctor",
+    };
+    await setDoc(
+      doc(db, APPOINTMENTS, id),
+      {
+        visit: visitPayload,
+        syncStatus: "pending",
+        syncError: "",
+        updatedAt,
+      },
+      { merge: true }
+    );
+    await syncLeadFromAppointment(appt, {
+      doctorStatus: "completed",
+      visitServiceName: serviceName,
+      visitCostEgp: costEgp,
+      visitPaidEgp: paidEgp,
+    });
+
+    const fresh = {
+      ...appt,
+      status: "completed",
+      visit: visitPayload,
+    };
+
+    try {
+      const result = await syncAppointmentToMainSite(fresh);
+      apptDialog.close();
+      const code = result?.patientCode ? ` · ${result.patientCode}` : "";
+      showToast(`تم تعديل الزيارة ومزامنتها${code}`);
+    } catch (syncErr) {
+      console.error(syncErr);
+      await markSyncFailed(id, syncErr.message || syncErr);
+      showToast("التعديل اتحفظ محليًا لكن المزامنة فشلت — أعد المحاولة");
+    }
+  } catch (err) {
+    console.error(err);
+    showToast("فشل حفظ تعديل الزيارة");
+  } finally {
+    saveVisitEditBtn.disabled = false;
   }
 }
 
@@ -790,7 +1050,7 @@ async function cancelAppointment() {
       },
       { merge: true }
     );
-    await syncLeadFromAppointment(id, {
+    await syncLeadFromAppointment(appt, {
       booked: "no",
       visitDate: "",
       visitTime: "",
@@ -1146,6 +1406,12 @@ function bindUi() {
     completeVisit();
   });
 
+  if (saveVisitEditBtn) {
+    saveVisitEditBtn.addEventListener("click", () => {
+      saveCompletedVisitEdit();
+    });
+  }
+
   retrySyncBtn.addEventListener("click", () => {
     retryMainSiteSync();
   });
@@ -1159,6 +1425,18 @@ function bindUi() {
       visitPaidEgp.value = visitCostEgp.value;
     }
   });
+
+  document.querySelectorAll('input[name="followUpBooked"]').forEach((radio) => {
+    radio.addEventListener("change", () => {
+      setFollowUpBooked(getFollowUpBooked() ? "yes" : "no");
+    });
+  });
+
+  if (doctorSearchInput) {
+    doctorSearchInput.addEventListener("input", () => {
+      renderSearchResults();
+    });
+  }
 }
 
 function startListening() {

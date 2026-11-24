@@ -102,6 +102,19 @@
         </article>
       </div>
 
+      <div class="doctor-search">
+        <label class="field search-field">
+          <span>بحث عن حالة</span>
+          <input
+            id="doctorSearchInput"
+            type="search"
+            placeholder="اسم المريض، الموبايل، أو الخدمة..."
+            autocomplete="off"
+          />
+        </label>
+        <div class="search-results" id="doctorSearchResults" hidden></div>
+      </div>
+
       <div class="agenda-list" id="agendaList" aria-live="polite"></div>
       <p class="empty-agenda" id="emptyAgenda">لا توجد مواعيد في هذا اليوم.</p>
     </section>
@@ -143,8 +156,8 @@
 
         <section class="visit-complete-panel" id="visitCompletePanel" hidden>
           <div class="visit-complete-head">
-            <strong>تسجيل الزيارة بعد الكشف</strong>
-            <p>الخدمة المقدمة والمبلغ المدفوع — بعد الحفظ جاهزة للمزامنة مع الموقع الرئيسي</p>
+            <strong id="visitCompleteTitle">تسجيل الزيارة بعد الكشف</strong>
+            <p id="visitCompleteHint">الخدمة المقدمة والمبلغ المدفوع — بعد الحفظ جاهزة للمزامنة مع الموقع الرئيسي</p>
           </div>
           <label class="field">
             <span>الخدمة المقدمة</span>
@@ -171,6 +184,38 @@
             <span>تفاصيل الكشف / التشخيص</span>
             <textarea id="visitClinicalNotes" rows="3" placeholder="الشكوى، التشخيص، ملاحظات الطبيب..."></textarea>
           </label>
+
+          <div class="followup-block" id="followUpBlock">
+            <fieldset class="choice-group">
+              <legend>هل في حجز تاني لنفس المريض؟</legend>
+              <div class="choice-row choice-row-2">
+                <label class="choice">
+                  <input type="radio" name="followUpBooked" value="yes" />
+                  <span>نعم</span>
+                </label>
+                <label class="choice">
+                  <input type="radio" name="followUpBooked" value="no" checked />
+                  <span>لا</span>
+                </label>
+              </div>
+            </fieldset>
+            <div class="followup-slot" id="followUpSlotPanel" hidden>
+              <div class="grid-2">
+                <label class="field">
+                  <span>تاريخ الموعد الإضافي</span>
+                  <input id="followUpVisitDate" type="date" />
+                </label>
+                <label class="field">
+                  <span>الساعة</span>
+                  <input id="followUpVisitTime" type="time" />
+                </label>
+              </div>
+              <label class="field">
+                <span>ملاحظات المتابعة (اختياري)</span>
+                <input id="followUpDetails" type="text" placeholder="مثال: مراجعة بعد أسبوع" />
+              </label>
+            </div>
+          </div>
         </section>
 
         <div class="completed-summary" id="completedSummary" hidden>
@@ -185,6 +230,7 @@
         <button type="button" class="btn btn-ghost" id="saveApptBtn">حفظ التعديل</button>
         <button type="button" class="btn btn-primary" id="confirmApptBtn" hidden>تأكيد الموعد</button>
         <button type="button" class="btn btn-primary" id="completeVisitBtn" hidden>حفظ إنهاء الزيارة</button>
+        <button type="button" class="btn btn-primary" id="saveVisitEditBtn" hidden>حفظ تعديل الزيارة</button>
         <button type="button" class="btn btn-primary" id="retrySyncBtn" hidden>إعادة المزامنة للموقع</button>
       </footer>
     </form>
