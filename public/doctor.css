@@ -967,6 +967,122 @@ input[type="number"]:focus {
   gap: 0.7rem;
 }
 
+.field-hint {
+  margin: -0.15rem 0 0.35rem;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--muted, #6b6b66);
+}
+
+.invoice-items-block,
+.case-cost-block {
+  display: grid;
+  gap: 0.55rem;
+  margin-bottom: 0.85rem;
+}
+
+.invoice-items-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.invoice-items-head strong {
+  font-size: 0.9rem;
+}
+
+.btn-compact {
+  min-height: 36px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.82rem;
+}
+
+.invoice-items-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.invoice-item-row {
+  display: grid;
+  grid-template-columns: 1fr 6.5rem auto;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.invoice-item-row input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.65rem 0.7rem;
+  font: inherit;
+  font-size: 16px;
+  background: var(--surface-solid);
+  color: var(--ink);
+  outline: none;
+  min-height: var(--touch);
+}
+
+.invoice-item-row .item-amount {
+  text-align: left;
+  direction: ltr;
+}
+
+.invoice-item-remove {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted, #6b6b66);
+  border-radius: 10px;
+  min-width: 40px;
+  min-height: var(--touch);
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.invoice-item-remove:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.case-cost-block {
+  padding: 0.75rem;
+  border: 1px dashed rgba(17, 17, 17, 0.18);
+  border-radius: 14px;
+  background: rgba(17, 17, 17, 0.02);
+}
+
+.doctor-totals {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.doctor-totals > div {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 12px;
+  background: var(--surface-solid);
+  border: 1px solid var(--line);
+}
+
+.doctor-totals span {
+  font-size: 0.72rem;
+  color: var(--muted, #6b6b66);
+}
+
+.doctor-totals strong {
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 520px) {
+  .invoice-item-row {
+    grid-template-columns: 1fr 5.5rem auto;
+  }
+}
+
 .field {
   display: grid;
   gap: 0.35rem;

@@ -158,23 +158,45 @@
         <section class="visit-complete-panel" id="visitCompletePanel" hidden>
           <div class="visit-complete-head">
             <strong id="visitCompleteTitle">تسجيل الزيارة بعد الكشف</strong>
-            <p id="visitCompleteHint">الخدمة والتكلفة لإصدار فاتورة Dentist On Call — الدفع يتسجل بعدين</p>
+            <p id="visitCompleteHint">بنود الفاتورة للمريض — تكاليف المعمل للحسابات الداخلية فقط ومش بتظهر في الفاتورة</p>
           </div>
-          <label class="field">
-            <span>الخدمة المقدمة</span>
-            <input id="visitServiceName" type="text" list="servicePriceList" placeholder="مثال: كشف منزلي" />
+
+          <div class="invoice-items-block">
+            <div class="invoice-items-head">
+              <strong>بنود الفاتورة (للمريض)</strong>
+              <button type="button" class="btn btn-ghost btn-compact" id="addInvoiceItemBtn">+ بند</button>
+            </div>
+            <div id="invoiceItemsList" class="invoice-items-list"></div>
             <datalist id="servicePriceList">
+              <option value="Scaling & polishing"></option>
+              <option value="Removal"></option>
+              <option value="Composite"></option>
               <option value="كشف منزلي"></option>
               <option value="استشارة"></option>
               <option value="حشو"></option>
               <option value="خلع"></option>
               <option value="تنظيف جير"></option>
             </datalist>
-          </label>
-          <label class="field">
-            <span>تكلفة الخدمة (جنيه)</span>
-            <input id="visitCostEgp" type="number" min="0" step="1" inputmode="numeric" placeholder="0" />
-          </label>
+          </div>
+
+          <div class="case-cost-block">
+            <div class="grid-2">
+              <label class="field">
+                <span>تكلفة المعمل / مواد (داخلي)</span>
+                <input id="visitCaseCostEgp" type="number" min="0" step="1" inputmode="numeric" placeholder="0" />
+              </label>
+              <label class="field">
+                <span>بيان التكلفة</span>
+                <input id="visitCaseCostNote" type="text" maxlength="160" placeholder="مثال: معمل الأسنان" />
+              </label>
+            </div>
+            <p class="field-hint">للنظام والمالية فقط — مش بتظهر في فاتورة المريض. الإجمالي بعد التكاليف = الإجمالي − المعمل</p>
+            <div class="doctor-totals" id="doctorTotals" aria-live="polite">
+              <div><span>إجمالي الفاتورة</span><strong id="doctorBillTotal">0 ج</strong></div>
+              <div><span>بعد التكاليف</span><strong id="doctorAfterCosts">0 ج</strong></div>
+            </div>
+          </div>
+
           <label class="field">
             <span>تفاصيل الكشف / التشخيص</span>
             <textarea id="visitClinicalNotes" rows="3" placeholder="الشكوى، التشخيص، ملاحظات الطبيب..."></textarea>

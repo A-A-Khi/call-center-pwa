@@ -62,8 +62,12 @@ const saveVisitEditBtn = document.getElementById("saveVisitEditBtn");
 const visitCompletePanel = document.getElementById("visitCompletePanel");
 const visitCompleteTitle = document.getElementById("visitCompleteTitle");
 const visitCompleteHint = document.getElementById("visitCompleteHint");
-const visitServiceName = document.getElementById("visitServiceName");
-const visitCostEgp = document.getElementById("visitCostEgp");
+const invoiceItemsList = document.getElementById("invoiceItemsList");
+const addInvoiceItemBtn = document.getElementById("addInvoiceItemBtn");
+const visitCaseCostEgp = document.getElementById("visitCaseCostEgp");
+const visitCaseCostNote = document.getElementById("visitCaseCostNote");
+const doctorBillTotal = document.getElementById("doctorBillTotal");
+const doctorAfterCosts = document.getElementById("doctorAfterCosts");
 const visitPaidEgp = document.getElementById("visitPaidEgp");
 const visitClinicalNotes = document.getElementById("visitClinicalNotes");
 const followUpBlock = document.getElementById("followUpBlock");
@@ -432,23 +436,150 @@ function resetFollowUpFields() {
   if (followUpDetails) followUpDetails.value = "";
 }
 
+function normalizeLineItems(rawItems, fallbackName = "", fallbackCost = 0) {
+  const items = Array.isArray(rawItems)
+    ? rawItems
+        .map((item) => ({
+          name: String(item?.name || "").trim(),
+          amountEgp: Number(item?.amountEgp ?? item?.costEgp ?? 0),
+        }))
+        .filter((item) => item.name && Number.isFinite(item.amountEgp) && item.amountEgp >= 0)
+    : [];
+  if (items.length) return items;
+  const name = String(fallbackName || "").trim();
+  const amount = Number(fallbackCost) || 0;
+  if (name) return [{ name, amountEgp: amount }];
+  return [{ name: "", amountEgp: 0 }];
+}
+
+function visitLineItems(visit, appt = null) {
+  return normalizeLineItems(
+    visit?.lineItems,
+    visit?.serviceName || appt?.service || "",
+    visit?.costEgp ?? 0
+  );
+}
+
+function sumLineItems(items) {
+  return (items || []).reduce((sum, item) => sum + (Number(item.amountEgp) || 0), 0);
+}
+
+function visitCaseCostEgpOf(visit) {
+  return Math.max(0, Number(visit?.caseCostEgp) || 0);
+}
+
+/** Patient-facing bill total = procedures only (lab/case cost excluded). */
+function visitInvoiceTotalEgp(visit, appt = null) {
+  if (Array.isArray(visit?.lineItems) && visit.lineItems.length) {
+    return sumLineItems(visitLineItems(visit, appt));
+  }
+  return Math.max(0, Number(visit?.costEgp) || 0);
+}
+
+function visitAfterCostsEgp(visit, appt = null) {
+  return Math.max(0, visitInvoiceTotalEgp(visit, appt) - visitCaseCostEgpOf(visit));
+}
+
+function renderInvoiceItemRows(items) {
+  if (!invoiceItemsList) return;
+  const rows = normalizeLineItems(items);
+  invoiceItemsList.innerHTML = rows
+    .map(
+      (item, index) => `
+      <div class="invoice-item-row" data-index="${index}">
+        <input
+          type="text"
+          class="item-name"
+          list="servicePriceList"
+          placeholder="اسم البند"
+          value="${escapeHtml(item.name)}"
+          aria-label="اسم البند"
+        />
+        <input
+          type="number"
+          class="item-amount"
+          min="0"
+          step="1"
+          inputmode="numeric"
+          placeholder="0"
+          value="${item.amountEgp || ""}"
+          aria-label="مبلغ البند"
+        />
+        <button type="button" class="invoice-item-remove" data-remove="${index}" aria-label="حذف البند" ${rows.length <= 1 ? "disabled" : ""}>×</button>
+      </div>`
+    )
+    .join("");
+  updateDoctorTotalsPreview();
+}
+
+function readInvoiceItemRows() {
+  if (!invoiceItemsList) return [];
+  return Array.from(invoiceItemsList.querySelectorAll(".invoice-item-row")).map((row) => ({
+    name: row.querySelector(".item-name")?.value.trim() || "",
+    amountEgp: Number(row.querySelector(".item-amount")?.value || 0),
+  }));
+}
+
+function updateDoctorTotalsPreview() {
+  const items = readInvoiceItemRows();
+  const billTotal = sumLineItems(
+    items.filter((item) => item.name && Number.isFinite(item.amountEgp) && item.amountEgp >= 0)
+  );
+  const caseRaw = visitCaseCostEgp?.value;
+  const caseCost =
+    caseRaw === "" || caseRaw == null ? 0 : Math.max(0, Number(caseRaw) || 0);
+  const after = Math.max(0, billTotal - caseCost);
+  if (doctorBillTotal) doctorBillTotal.textContent = `${billTotal} ج`;
+  if (doctorAfterCosts) doctorAfterCosts.textContent = `${after} ج`;
+}
+
 function readInvoiceFields() {
-  const serviceName = visitServiceName.value.trim();
-  const costEgp = Number(visitCostEgp.value);
+  const lineItems = readInvoiceItemRows()
+    .map((item) => ({
+      name: item.name.trim(),
+      amountEgp: Number(item.amountEgp),
+    }))
+    .filter((item) => item.name);
+
+  if (!lineItems.length) {
+    showToast("أضف بند واحد على الأقل للفاتورة");
+    invoiceItemsList?.querySelector(".item-name")?.focus();
+    return null;
+  }
+  for (const item of lineItems) {
+    if (!Number.isFinite(item.amountEgp) || item.amountEgp < 0) {
+      showToast(`أدخل مبلغ صحيح للبند: ${item.name}`);
+      return null;
+    }
+  }
+
+  const caseCostRaw = visitCaseCostEgp?.value;
+  const caseCostEgp =
+    caseCostRaw === "" || caseCostRaw == null ? 0 : Number(caseCostRaw);
+  const caseCostNote = (visitCaseCostNote?.value || "").trim().slice(0, 160);
   const clinicalNotes = visitClinicalNotes.value.trim();
+  const costEgp = sumLineItems(lineItems);
 
-  if (!serviceName) {
-    showToast("اكتب الخدمة المقدمة");
-    visitServiceName.focus();
+  if (!Number.isFinite(caseCostEgp) || caseCostEgp < 0) {
+    showToast("أدخل تكلفة المعمل بشكل صحيح (أو اتركها صفر)");
+    visitCaseCostEgp?.focus();
     return null;
   }
-  if (!Number.isFinite(costEgp) || costEgp < 0) {
-    showToast("أدخل تكلفة صحيحة");
-    visitCostEgp.focus();
+  if (caseCostEgp > costEgp) {
+    showToast("تكلفة المعمل أكبر من إجمالي الفاتورة");
+    visitCaseCostEgp?.focus();
     return null;
   }
 
-  return { serviceName, costEgp, clinicalNotes };
+  return {
+    lineItems,
+    serviceName: lineItems.map((item) => item.name).join(" + "),
+    costEgp,
+    caseCostEgp,
+    caseCostNote,
+    clinicalNotes,
+    afterCostsEgp: Math.max(0, costEgp - caseCostEgp),
+  };
 }
 
 function computePaymentStatus(costEgp, paidEgp) {
@@ -477,7 +608,7 @@ function buildInvoiceNumber(appt) {
 
 function completedMoneyLabel(appt, status) {
   if (status !== "completed" || !appt.visit) return "";
-  const cost = Number(appt.visit.costEgp) || 0;
+  const cost = visitInvoiceTotalEgp(appt.visit);
   const paid = Number(appt.visit.paidEgp) || 0;
   const remain = remainingBalance(cost, paid);
   if (remain > 0) return ` · متبقي ${remain} ج`;
@@ -590,15 +721,20 @@ function setScheduleFieldsDisabled(disabled) {
 
 function fillCompletedSummary(appt) {
   const v = appt.visit || {};
-  const cost = Number(v.costEgp) || 0;
+  const items = visitLineItems(v, appt);
+  const cost = visitInvoiceTotalEgp(v, appt);
+  const caseCost = visitCaseCostEgpOf(v);
+  const afterCosts = visitAfterCostsEgp(v, appt);
   const paid = Number(v.paidEgp) || 0;
   const remain = remainingBalance(cost, paid);
   const payStatus = v.paymentStatus || computePaymentStatus(cost, paid);
+  const itemsLabel = items.map((item) => `${item.name} ${item.amountEgp} ج`).join(" · ");
 
   completedSummaryText.textContent = [
     v.invoiceNumber || null,
-    v.serviceName || appt.service || "خدمة",
+    itemsLabel || v.serviceName || appt.service || "خدمة",
     `الإجمالي ${cost} ج`,
+    caseCost > 0 ? `معمل ${caseCost} ج · بعد التكاليف ${afterCosts} ج` : null,
     `مدفوع ${paid} ج`,
     remain > 0 ? `متبقي ${remain} ج` : null,
     v.clinicalNotes || null,
@@ -632,10 +768,23 @@ function openDialog(appt) {
   editDetails.value = appt.details || "";
   dialogStatus.textContent = statusLabel(status);
 
-  visitServiceName.value = appt.visit?.serviceName || appt.service || "";
-  visitCostEgp.value = appt.visit?.costEgp ?? "";
+  renderInvoiceItemRows(
+    visitLineItems(appt.visit, appt).map((item) =>
+      item.name || item.amountEgp
+        ? item
+        : { name: appt.service || "", amountEgp: 0 }
+    )
+  );
+  if (visitCaseCostEgp) {
+    visitCaseCostEgp.value =
+      appt.visit?.caseCostEgp != null && appt.visit?.caseCostEgp !== ""
+        ? appt.visit.caseCostEgp
+        : "";
+  }
+  if (visitCaseCostNote) visitCaseCostNote.value = appt.visit?.caseCostNote || "";
   visitPaidEgp.value = appt.visit?.paidEgp ?? 0;
   visitClinicalNotes.value = appt.visit?.clinicalNotes || "";
+  updateDoctorTotalsPreview();
   resetFollowUpFields();
 
   const scheduleLocked = status === "cancelled" || status === "completed";
@@ -655,11 +804,11 @@ function openDialog(appt) {
   if (status === "confirmed") {
     visitCompleteTitle.textContent = "إصدار فاتورة بعد الكشف";
     visitCompleteHint.textContent =
-      "الخدمة والتكلفة لإصدار فاتورة Dentist On Call — الدفع يتسجل بعدين";
+      "بنود الفاتورة للمريض — تكلفة المعمل للحسابات فقط ومش بتظهر في الفاتورة";
   } else if (status === "completed") {
     visitCompleteTitle.textContent = "تعديل بيانات الفاتورة";
     visitCompleteHint.textContent =
-      "تقدر تعدّل الخدمة أو التكلفة أو الملاحظات ثم تحفظ — الدفع من القسم التالي";
+      "عدّل البنود أو تكلفة المعمل الداخلية ثم احفظ — فاتورة المريض بدون المعمل";
   }
 
   retrySyncBtn.hidden = true;
@@ -766,8 +915,18 @@ function roundRectPath(ctx, x, y, w, h, r) {
 
 async function renderInvoiceCanvas(appt) {
   const visit = appt.visit || {};
+  // Patient bill: procedure lines only — never include lab/case costs.
+  const lineItems = visitLineItems(visit, appt).map((item) => ({
+    name: item.name,
+    amount: item.amountEgp,
+  }));
+  const total = visitInvoiceTotalEgp(visit, appt);
+  const paid = Number(visit.paidEgp) || 0;
+  const remain = remainingBalance(total, paid);
+  const payStatus = visit.paymentStatus || computePaymentStatus(total, paid);
+  const extraLines = Math.max(0, lineItems.length - 1);
   const width = 720;
-  const height = 980;
+  const height = 980 + extraLines * 46;
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
@@ -805,7 +964,7 @@ async function renderInvoiceCanvas(appt) {
   ctx.font = "500 20px IBM Plex Sans Arabic, Arial, sans-serif";
   ctx.fillText("فاتورة خدمة طبية", width - 48, 108);
 
-  roundRectPath(ctx, 36, 180, width - 72, 720, 20);
+  roundRectPath(ctx, 36, 180, width - 72, 720 + extraLines * 46, 20);
   ctx.fillStyle = "#ffffff";
   ctx.fill();
   ctx.strokeStyle = "rgba(17, 17, 17, 0.1)";
@@ -813,10 +972,6 @@ async function renderInvoiceCanvas(appt) {
   ctx.stroke();
 
   const invoiceNumber = visit.invoiceNumber || buildInvoiceNumber(appt);
-  const cost = Number(visit.costEgp) || 0;
-  const paid = Number(visit.paidEgp) || 0;
-  const remain = remainingBalance(cost, paid);
-  const payStatus = visit.paymentStatus || computePaymentStatus(cost, paid);
 
   ctx.textAlign = "right";
   ctx.fillStyle = ink;
@@ -855,12 +1010,14 @@ async function renderInvoiceCanvas(appt) {
   ctx.fillText("البند", width - 64, y);
   ctx.fillText("المبلغ", 160, y);
 
-  y += 46;
-  ctx.fillStyle = ink;
-  ctx.font = "600 22px IBM Plex Sans Arabic, Arial, sans-serif";
-  const serviceName = visit.serviceName || appt.service || "خدمة";
-  ctx.fillText(serviceName, width - 64, y);
-  ctx.fillText(`${cost} ج.م`, 160, y);
+  lineItems.forEach((item) => {
+    y += 46;
+    ctx.fillStyle = ink;
+    ctx.font = "600 22px IBM Plex Sans Arabic, Arial, sans-serif";
+    const name = String(item.name || "بند").slice(0, 42);
+    ctx.fillText(name, width - 64, y);
+    ctx.fillText(`${item.amount} ج.م`, 160, y);
+  });
 
   y += 50;
   ctx.strokeStyle = "rgba(17, 17, 17, 0.12)";
@@ -874,7 +1031,7 @@ async function renderInvoiceCanvas(appt) {
   ctx.fillStyle = ink;
   ctx.fillText("الإجمالي", width - 64, y);
   ctx.fillStyle = gold;
-  ctx.fillText(`${cost} ج.م`, 180, y);
+  ctx.fillText(`${total} ج.م`, 180, y);
 
   y += 50;
   ctx.font = "600 22px IBM Plex Sans Arabic, Arial, sans-serif";
@@ -928,15 +1085,18 @@ function normalizeWhatsAppPhone(phone) {
 
 function invoiceShareText(appt) {
   const visit = appt.visit || {};
-  const cost = Number(visit.costEgp) || 0;
-  const remain = remainingBalance(cost, visit.paidEgp);
+  const items = visitLineItems(visit, appt);
+  const total = visitInvoiceTotalEgp(visit, appt);
+  const remain = remainingBalance(total, visit.paidEgp);
   const lines = [
     `فاتورة ${INVOICE_BRAND}`,
     `رقم: ${visit.invoiceNumber || buildInvoiceNumber(appt)}`,
     `المريض: ${appt.patientName || "—"}`,
-    `الخدمة: ${visit.serviceName || appt.service || "—"}`,
-    `الإجمالي: ${cost} ج.م`,
   ];
+  items.forEach((item) => {
+    lines.push(`${item.name}: ${item.amountEgp} ج.م`);
+  });
+  lines.push(`الإجمالي: ${total} ج.م`);
   if (remain > 0) lines.push(`المتبقي: ${remain} ج.م`);
   else lines.push("الحالة: مدفوع بالكامل");
   return lines.join("\n");
@@ -1039,8 +1199,14 @@ function buildMainSitePayload(appt) {
     },
     visit: {
       service_name: visit.serviceName || appt.service || "كشف منزلي",
-      cost_egp: Number(visit.costEgp) || 0,
+      cost_egp: visitInvoiceTotalEgp(visit, appt),
       paid_egp: Number(visit.paidEgp) || 0,
+      case_cost_egp: visitCaseCostEgpOf(visit),
+      case_cost_note: String(visit.caseCostNote || "").trim() || null,
+      procedures: visitLineItems(visit, appt).map((item) => ({
+        name: item.name,
+        cost_egp: item.amountEgp,
+      })),
       clinical_notes: visit.clinicalNotes || appt.details || null,
       chief_complaint: visit.clinicalNotes || null,
       diagnosis: visit.clinicalNotes || null,
@@ -1056,7 +1222,10 @@ async function syncAppointmentToMainSite(appt) {
   if (!appt.visitDate || !appt.visitTime) {
     throw new Error("تاريخ/ساعة الزيارة ناقصة");
   }
-  if (!appt.visit?.serviceName) {
+  const hasItems =
+    (Array.isArray(appt.visit?.lineItems) && appt.visit.lineItems.length > 0) ||
+    appt.visit?.serviceName;
+  if (!hasItems) {
     throw new Error("خدمة الزيارة ناقصة");
   }
 
@@ -1221,7 +1390,14 @@ async function completeVisit() {
 
   const fields = readInvoiceFields();
   if (!fields) return;
-  const { serviceName, costEgp, clinicalNotes } = fields;
+  const {
+    lineItems,
+    serviceName,
+    costEgp,
+    caseCostEgp,
+    caseCostNote,
+    clinicalNotes,
+  } = fields;
   const paidEgp = 0;
 
   const wantsFollowUp = getFollowUpBooked();
@@ -1250,7 +1426,10 @@ async function completeVisit() {
       try {
         const visitPayload = {
           serviceName,
+          lineItems,
           costEgp,
+          caseCostEgp,
+          caseCostNote: caseCostNote || null,
           paidEgp,
           clinicalNotes,
           completedAt: updatedAt,
@@ -1275,6 +1454,7 @@ async function completeVisit() {
           doctorStatus: "completed",
           visitServiceName: serviceName,
           visitCostEgp: costEgp,
+          visitCaseCostEgp: caseCostEgp,
           visitPaidEgp: paidEgp,
         });
 
@@ -1342,11 +1522,18 @@ async function saveCompletedVisitEdit() {
 
   const fields = readInvoiceFields();
   if (!fields) return;
-  const { serviceName, costEgp, clinicalNotes } = fields;
+  const {
+    lineItems,
+    serviceName,
+    costEgp,
+    caseCostEgp,
+    caseCostNote,
+    clinicalNotes,
+  } = fields;
   const paidEgp = Number(appt.visit?.paidEgp) || 0;
   if (paidEgp > costEgp) {
-    showToast("التكلفة أقل من المدفوع المسجّل — عدّل الدفعة أولاً أو زوّد التكلفة");
-    visitCostEgp.focus();
+    showToast("الإجمالي أقل من المدفوع المسجّل — عدّل الدفعة أولاً أو زوّد البنود");
+    invoiceItemsList?.querySelector(".item-amount")?.focus();
     return;
   }
 
@@ -1358,7 +1545,10 @@ async function saveCompletedVisitEdit() {
         const visitPayload = {
           ...(appt.visit || {}),
           serviceName,
+          lineItems,
           costEgp,
+          caseCostEgp,
+          caseCostNote: caseCostNote || null,
           paidEgp,
           clinicalNotes,
           invoiceNumber: appt.visit?.invoiceNumber || buildInvoiceNumber(appt),
@@ -1381,6 +1571,7 @@ async function saveCompletedVisitEdit() {
           doctorStatus: "completed",
           visitServiceName: serviceName,
           visitCostEgp: costEgp,
+          visitCaseCostEgp: caseCostEgp,
           visitPaidEgp: paidEgp,
         });
 
@@ -1422,7 +1613,7 @@ async function savePayment() {
   const appt = appointments.find((a) => a.id === id);
   if (!appt || normalizeStatus(appt) !== "completed") return;
 
-  const costEgp = Number(appt.visit?.costEgp) || 0;
+  const costEgp = visitInvoiceTotalEgp(appt.visit, appt);
   const paidEgp = readPaymentAmount(costEgp);
   if (paidEgp == null) return;
 
@@ -1904,6 +2095,32 @@ function bindUi() {
       shareCurrentInvoice();
     });
   }
+
+  if (addInvoiceItemBtn) {
+    addInvoiceItemBtn.addEventListener("click", () => {
+      const items = readInvoiceItemRows();
+      items.push({ name: "", amountEgp: 0 });
+      renderInvoiceItemRows(items);
+      invoiceItemsList?.querySelector(".invoice-item-row:last-child .item-name")?.focus();
+    });
+  }
+
+  if (invoiceItemsList) {
+    invoiceItemsList.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-remove]");
+      if (!btn) return;
+      const items = readInvoiceItemRows();
+      if (items.length <= 1) return;
+      const index = Number(btn.getAttribute("data-remove"));
+      items.splice(index, 1);
+      renderInvoiceItemRows(items);
+    });
+    invoiceItemsList.addEventListener("input", () => {
+      updateDoctorTotalsPreview();
+    });
+  }
+
+  visitCaseCostEgp?.addEventListener("input", updateDoctorTotalsPreview);
 
   retrySyncBtn.addEventListener("click", () => {
     retryMainSiteSync();
